@@ -241,14 +241,9 @@
     <!-- Supabase SDK -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script>
-        // Configuración Supabase (se obtiene de variables de entorno o configuración)
-        const supabaseUrl = window.location.hostname === 'localhost' 
-            ? 'https://tu-proyecto.supabase.co'  // Para desarrollo local
-            : 'https://tu-proyecto.supabase.co'; // Para producción (Digital Ocean leerá las env vars)
-        
-        const supabaseKey = window.location.hostname === 'localhost'
-            ? 'tu-anon-key'  // Para desarrollo local  
-            : 'tu-anon-key'; // Para producción
+        // Configuración Supabase
+        const supabaseUrl = 'https://ssmpnzcjhrjqhglqkmoe.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzbXBuemNqaHJqcWhnbHFrbW9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2MDI1NDgsImV4cCI6MjA0OTE3ODU0OH0.RXR9xLdpKznj8aowQGsj3dKkrxKKKKpRogqtjBBgZKs';
         
         try {
             const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
