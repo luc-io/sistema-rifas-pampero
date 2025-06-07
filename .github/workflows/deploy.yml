@@ -1,0 +1,135 @@
+name: Deploy to Digital Ocean
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate Code
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Validate HTML
+      run: |
+        echo "🔍 Validating HTML files..."
+        # Check if index.html exists and has basic structure
+        if [ ! -f "index.html" ]; then
+          echo "❌ index.html not found"
+          exit 1
+        fi
+        
+        if ! grep -q "<!DOCTYPE html>" index.html; then
+          echo "❌ Missing DOCTYPE in index.html"
+          exit 1
+        fi
+        
+        if ! grep -q "Sistema de Rifas Pampero" index.html; then
+          echo "❌ Missing title in index.html"
+          exit 1
+        fi
+        
+        echo "✅ HTML validation passed"
+
+    - name: Validate JavaScript
+      run: |
+        echo "🔍 Validating JavaScript files..."
+        
+        # Check if all required JS files exist
+        required_files=("js/utils.js" "js/app.js" "js/numbers.js" "js/admin.js" "js/reports.js" "js/backup.js" "js/supabase.js")
+        
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "❌ Missing required file: $file"
+            exit 1
+          fi
+        done
+        
+        # Basic syntax check for JS files
+        for js_file in js/*.js; do
+          if [ -f "$js_file" ]; then
+            echo "Checking syntax: $js_file"
+            node -c "$js_file" || exit 1
+          fi
+        done
+        
+        echo "✅ JavaScript validation passed"
+
+    - name: Validate CSS
+      run: |
+        echo "🔍 Validating CSS files..."
+        
+        if [ ! -f "css/styles.css" ]; then
+          echo "❌ css/styles.css not found"
+          exit 1
+        fi
+        
+        # Check for basic CSS structure
+        if ! grep -q "\.container" css/styles.css; then
+          echo "❌ Missing .container class in CSS"
+          exit 1
+        fi
+        
+        echo "✅ CSS validation passed"
+
+    - name: Check Supabase Configuration
+      run: |
+        echo "🔍 Checking Supabase configuration..."
+        
+        if ! grep -q "supabase" index.html; then
+          echo "⚠️ Warning: Supabase not configured in index.html"
+        fi
+        
+        if ! grep -q "SupabaseManager" js/supabase.js; then
+          echo "❌ SupabaseManager not found in supabase.js"
+          exit 1
+        fi
+        
+        echo "✅ Supabase configuration check passed"
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    name: Deploy to Digital Ocean
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy notification
+      run: |
+        echo "🚀 Deploying to Digital Ocean..."
+        echo "📦 Commit: ${{ github.sha }}"
+        echo "👤 Author: ${{ github.actor }}"
+        echo "💬 Message: ${{ github.event.head_commit.message }}"
+        
+        # Digital Ocean App Platform will automatically deploy
+        # when this commit is pushed to main branch
+        echo "✅ Deployment triggered successfully!"
+        echo "🌐 Check your Digital Ocean dashboard for deployment status"
+
+  notify:
+    needs: [validate, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    name: Notify Status
+    
+    steps:
+    - name: Deployment Success
+      if: needs.deploy.result == 'success'
+      run: |
+        echo "🎉 Deployment completed successfully!"
+        echo "📱 Your Rifas Pampero app is now live!"
+        
+    - name: Deployment Failed
+      if: needs.deploy.result == 'failure' || needs.validate.result == 'failure'
+      run: |
+        echo "❌ Deployment failed!"
+        echo "🔍 Check the logs above for details"
+        exit 1

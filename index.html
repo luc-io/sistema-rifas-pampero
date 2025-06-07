@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Sistema de Rifas Pampero</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <meta name="description" content="Sistema completo de administración de rifas para Club Náutico Pampero">
+    <meta name="keywords" content="rifas, sorteos, club náutico, pampero, sistema ventas">
+    <meta name="author" content="Club Náutico Pampero">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Rifas Pampero">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎟️</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Indicador de conexión a base de datos -->
+        <div id="dbStatus" style="background: #fff3cd; padding: 10px; text-align: center; font-size: 14px; border-bottom: 1px solid #ffeaa7;">
+            🔄 Conectando a Supabase...
+        </div>
+
+        <div class="header">
+            <h1 id="raffleTitle">🔧 Admin - Sistema de Rifas Pampero</h1>
+            <p id="raffleSubtitle">Panel de administración</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="tab active" onclick="showTab('setup')">Configurar</button>
+            <button class="tab" onclick="showTab('numbers')">Números</button>
+            <button class="tab" onclick="showTab('admin')">Administrar</button>
+            <button class="tab" onclick="showTab('reports')">Reportes</button>
+            <button class="tab" onclick="showTab('backup')">Backup</button>
+        </div>
+
+        <!-- Tab: Configuración -->
+        <div class="tab-content active" id="setup">
+            <div class="config-form">
+                <div class="form-group">
+                    <label for="raffleName">Nombre de la Rifa</label>
+                    <input type="text" id="raffleName" placeholder="Ej: Rifa Pampero 2025" value="Rifa Pampero 2025">
+                </div>
+
+                <div class="form-group">
+                    <label for="prizeDescription">Descripción del Premio</label>
+                    <textarea id="prizeDescription" rows="3" placeholder="Describe el premio que se va a rifar">Navegación recreativa en velero Pampero + curso básico de navegación</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="totalNumbers">Cantidad de Números</label>
+                    <input type="number" id="totalNumbers" min="100" max="1000" value="1000">
+                    <small style="color: #6c757d;">Números del 0 al 999</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="pricePerNumber">Precio por Número ($)</label>
+                    <input type="number" id="pricePerNumber" min="1" step="0.01" value="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="organizationName">Organización</label>
+                    <input type="text" id="organizationName" placeholder="Nombre de tu organización" value="Club Náutico Pampero">
+                </div>
+
+                <div class="form-group">
+                    <label for="reservationTime">Tiempo límite para reservas (horas)</label>
+                    <input type="number" id="reservationTime" min="1" max="72" value="24">
+                    <small style="color: #6c757d;">Tiempo que tiene el usuario para confirmar el pago</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="whatsappNumber">Número de WhatsApp para gestión</label>
+                    <input type="tel" id="whatsappNumber" placeholder="+54 9 11 1234-5678" required>
+                    <small style="color: #6c757d;">Número donde recibirás comprobantes y confirmaciones</small>
+                </div>
+
+                <button class="btn" onclick="RaffleApp.setupRaffle()">Crear Rifa</button>
+            </div>
+        </div>
+
+        <!-- Tab: Números -->
+        <div class="tab-content" id="numbers">
+            <div id="numbersContent">
+                <div class="setup-needed">
+                    <h3>🎯 Configura tu rifa primero</h3>
+                    <p>Ve a la pestaña "Configurar" para crear tu rifa</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Administración -->
+        <div class="tab-content" id="admin">
+            <div id="adminContent">
+                <div class="setup-needed">
+                    <h3>📊 Panel de Administración</h3>
+                    <p>Configura tu rifa para ver las estadísticas</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Reportes -->
+        <div class="tab-content" id="reports">
+            <div id="reportsContent">
+                <div class="setup-needed">
+                    <h3>📈 Reportes y Estadísticas</h3>
+                    <p>Configura tu rifa para ver los reportes</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Backup -->
+        <div class="tab-content" id="backup">
+            <div id="backupContent">
+                <div class="backup-section">
+                    <div class="backup-warning">⚠️ Importante: Respalda tus datos regularmente</div>
+                    <p>Los datos se almacenan en Supabase con respaldo local automático.</p>
+                    
+                    <div style="margin: 20px 0;">
+                        <button class="btn" onclick="BackupManager.exportFullBackup()">📥 Descargar Backup Completo</button>
+                        <button class="btn btn-secondary" onclick="BackupManager.importFullBackup()">📤 Restaurar Backup</button>
+                    </div>
+                    
+                    <div style="margin: 10px 0;">
+                        <button class="btn btn-info btn-small" onclick="BackupManager.exportConfigOnly()">📋 Exportar Solo Configuración</button>
+                        <button class="btn btn-info btn-small" onclick="BackupManager.exportSalesOnly()">📊 Exportar Solo Ventas</button>
+                    </div>
+                    
+                    <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="BackupManager.handleBackupImport(event)">
+                    
+                    <div class="last-backup" id="lastBackupInfo">
+                        Último backup: Nunca
+                    </div>
+                </div>
+                
+                <div class="report-section">
+                    <h3>🔧 Herramientas de Datos</h3>
+                    <button class="btn btn-warning" onclick="BackupManager.clearAllData()">🗑️ Limpiar Todos los Datos</button>
+                    <button class="btn btn-info" onclick="BackupManager.validateData()">✅ Validar Integridad de Datos</button>
+                    
+                    <div id="dataValidationResult" style="margin-top: 15px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para registro de compra -->
+    <div class="modal" id="purchaseModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="NumbersManager.closePurchaseModal()">&times;</span>
+            <h3>Completar Compra</h3>
+            
+            <div class="selection-summary">
+                <h4>Números seleccionados:</h4>
+                <div id="modalSelectedNumbers"></div>
+                <div class="total-price" id="modalTotalPrice"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="buyerName">Nombre</label>
+                <input type="text" id="buyerName" required autocomplete="off" oninput="NumbersManager.searchExistingBuyers()" onblur="NumbersManager.clearSuggestions()">
+                <div id="buyerSuggestions" class="buyer-suggestions"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="buyerLastName">Apellido</label>
+                <input type="text" id="buyerLastName" required>
+            </div>
+
+            <div class="form-group">
+                <label for="buyerPhone">Teléfono</label>
+                <input type="tel" id="buyerPhone" required>
+            </div>
+
+            <div class="form-group">
+                <label for="buyerEmail">Email (opcional)</label>
+                <input type="email" id="buyerEmail">
+            </div>
+
+            <div class="form-group">
+                <label for="navigationInterest">¿Te interesa aprender a navegar o salir a navegar recreativamente?</label>
+                <select id="navigationInterest">
+                    <option value="">Seleccionar...</option>
+                    <option value="aprender">Sí, me interesa aprender a navegar</option>
+                    <option value="recreativo">Sí, me interesa salir a navegar recreativamente</option>
+                    <option value="ambos">Me interesan ambas opciones</option>
+                    <option value="no">No me interesa</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="isMember">¿Eres socio del club?</label>
+                <select id="isMember" onchange="NumbersManager.toggleMemberActivities()">
+                    <option value="">Seleccionar...</option>
+                    <option value="si">Sí, soy socio</option>
+                    <option value="no">No soy socio</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="memberActivitiesGroup" style="display: none;">
+                <label for="memberActivities">¿Qué actividades realizas en el club?</label>
+                <select id="memberActivities">
+                    <option value="">Seleccionar...</option>
+                    <option value="remo">Remo</option>
+                    <option value="ecologia">Ecología</option>
+                    <option value="nautica">Náutica</option>
+                    <option value="pesca">Pesca</option>
+                    <option value="multiple">Múltiples actividades</option>
+                    <option value="ninguna">Ninguna en particular</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="paymentMethod">Método de Pago</label>
+                <select id="paymentMethod" onchange="NumbersManager.handlePaymentMethodChange()">
+                    <option value="">Seleccionar método...</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="transferencia">Transferencia Bancaria</option>
+                </select>
+            </div>
+
+            <div id="transferInfo" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                <h4 style="color: #0066cc; margin-bottom: 10px;">📱 Datos para Transferencia</h4>
+                <p><strong>Alias:</strong> PAMPERO.RIFA</p>
+                <p><strong>CBU:</strong> 0000003100010000000001</p>
+                <p><strong>Titular:</strong> Club Náutico Pampero</p>
+                <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                    💡 <strong>Importante:</strong> Envía el comprobante por WhatsApp al número que aparece abajo para confirmar tu compra.
+                </p>
+            </div>
+
+            <button class="btn" onclick="NumbersManager.completePurchase()">Confirmar Compra</button>
+            <button class="btn btn-secondary" onclick="NumbersManager.closePurchaseModal()">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Supabase SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script>
+        // Configuración Supabase (se obtiene de variables de entorno o configuración)
+        const supabaseUrl = window.location.hostname === 'localhost' 
+            ? 'https://tu-proyecto.supabase.co'  // Para desarrollo local
+            : 'https://tu-proyecto.supabase.co'; // Para producción (Digital Ocean leerá las env vars)
+        
+        const supabaseKey = window.location.hostname === 'localhost'
+            ? 'tu-anon-key'  // Para desarrollo local  
+            : 'tu-anon-key'; // Para producción
+        
+        try {
+            const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+            window.supabaseClient = supabaseClient;
+            
+            // Actualizar indicador
+            updateDbStatus('🚀 Supabase conectado', '#d4edda');
+        } catch (error) {
+            console.warn('Supabase no configurado:', error.message);
+            updateDbStatus('📱 Modo local (localStorage)', '#fff3cd');
+        }
+        
+        function updateDbStatus(message, color) {
+            const status = document.getElementById('dbStatus');
+            if (status) {
+                status.textContent = message;
+                status.style.background = color;
+            }
+        }
+    </script>
+
+    <!-- Scripts principales -->
+    <script src="js/utils.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/backup.js"></script>
+    <script src="js/numbers.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
