@@ -6,6 +6,44 @@
 // Gestión principal de la aplicación
 window.RaffleApp = {
     /**
+     * Inicializar Supabase
+     */
+    initSupabase: function() {
+        // Configuración Supabase
+        const supabaseUrl = 'https://ssmpnzcjhrjqhglqkmoe.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzbXBuemNqaHJqcWhnbHFrbW9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2MDI1NDgsImV4cCI6MjA0OTE3ODU0OH0.RXR9xLdpKznj8aowQGsj3dKkrxKKKKpRogqtjBBgZKs';
+        
+        try {
+            const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+            window.supabaseClient = supabaseClient;
+            
+            // Inicializar SupabaseManager
+            if (window.SupabaseManager) {
+                SupabaseManager.init(supabaseClient);
+                this.updateDbStatus('🚀 Supabase conectado', '#d4edda');
+                console.log('✅ Supabase inicializado correctamente');
+            } else {
+                console.warn('⚠️ SupabaseManager no está disponible');
+                this.updateDbStatus('⚠️ Error de configuración', '#f8d7da');
+            }
+        } catch (error) {
+            console.warn('Supabase no configurado:', error.message);
+            this.updateDbStatus('📱 Modo local (localStorage)', '#fff3cd');
+        }
+    },
+
+    /**
+     * Actualizar indicador de estado de la base de datos
+     */
+    updateDbStatus: function(message, color) {
+        const status = document.getElementById('dbStatus');
+        if (status) {
+            status.textContent = message;
+            status.style.background = color;
+        }
+    },
+
+    /**
      * Configurar la rifa inicial
      */
     setupRaffle: function() {
@@ -43,8 +81,21 @@ window.RaffleApp = {
         document.getElementById('raffleTitle').textContent = name;
         document.getElementById('raffleSubtitle').textContent = `${organization} - $${price} por número`;
 
-        // Guardar configuración
-        autoSave();
+        // Guardar configuración usando SupabaseManager si está disponible
+        if (window.SupabaseManager && SupabaseManager.isConnected) {
+            SupabaseManager.saveRaffleConfig(AppState.raffleConfig)
+                .then(() => {
+                    console.log('✅ Configuración guardada en Supabase');
+                })
+                .catch((error) => {
+                    console.error('❌ Error guardando en Supabase:', error);
+                    // Fallback a localStorage
+                    autoSave();
+                });
+        } else {
+            // Usar localStorage como fallback
+            autoSave();
+        }
 
         // Inicializar interfaces
         NumbersManager.createInterface();
@@ -59,7 +110,14 @@ window.RaffleApp = {
      * Inicializar la aplicación al cargar
      */
     init: function() {
-        loadFromStorage();
+        // Primero inicializar Supabase
+        this.initSupabase();
+        
+        // Luego cargar datos (que ahora usará Supabase si está disponible)
+        setTimeout(() => {
+            loadFromStorage();
+        }, 500); // Pequeño delay para permitir que Supabase se inicialice
+        
         console.log('✅ RaffleApp inicializado correctamente');
     }
 };

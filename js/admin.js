@@ -132,7 +132,7 @@ window.AdminManager = {
     /**
      * Confirmar reserva
      */
-    confirmReservation: function(reservationId, paymentMethod) {
+    confirmReservation: async function(reservationId, paymentMethod) {
         const reservation = AppState.reservations.find(r => r.id === reservationId);
         if (!reservation) return;
 
@@ -154,10 +154,26 @@ window.AdminManager = {
             fromReservation: true
         };
 
-        AppState.sales.push(sale);
+        // Guardar venta en base de datos
+        try {
+            if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                await window.SupabaseManager.saveSale(sale);
+            } else {
+                AppState.sales.push(sale);
+                autoSave();
+            }
+        } catch (error) {
+            console.error('Error guardando venta confirmada:', error);
+            AppState.sales.push(sale);
+            autoSave();
+        }
 
         // Marcar reserva como confirmada
-        reservation.status = 'confirmed';
+        if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+            await window.SupabaseManager.updateReservationStatus(reservationId, 'confirmed');
+        } else {
+            reservation.status = 'confirmed';
+        }
 
         // Cambiar números de reservado a vendido
         reservation.numbers.forEach(number => {
@@ -169,7 +185,6 @@ window.AdminManager = {
         });
 
         this.updateInterface();
-        autoSave();
         
         // Generar mensaje de confirmación
         const numbersFormatted = reservation.numbers.map(n => Utils.formatNumber(n)).join(', ');
@@ -186,14 +201,18 @@ window.AdminManager = {
     /**
      * Cancelar reserva
      */
-    cancelReservation: function(reservationId) {
+    cancelReservation: async function(reservationId) {
         if (!confirm('¿Estás seguro de cancelar esta reserva?')) return;
         
         const reservation = AppState.reservations.find(r => r.id === reservationId);
         if (!reservation) return;
 
         // Marcar como cancelada
-        reservation.status = 'cancelled';
+        if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+            await window.SupabaseManager.updateReservationStatus(reservationId, 'cancelled');
+        } else {
+            reservation.status = 'cancelled';
+        }
 
         // Liberar números
         reservation.numbers.forEach(number => {
@@ -205,7 +224,6 @@ window.AdminManager = {
         });
 
         this.updateInterface();
-        autoSave();
         Utils.showNotification('Reserva cancelada', 'success');
     },
 
@@ -297,26 +315,54 @@ window.AdminManager = {
     /**
      * Marcar pago como confirmado
      */
-    markAsPaid: function(saleId) {
-        const sale = AppState.sales.find(s => s.id === saleId);
-        if (sale) {
-            sale.status = 'paid';
-            this.updateInterface();
-            autoSave();
-            Utils.showNotification('Pago marcado como confirmado', 'success');
+    markAsPaid: async function(saleId) {
+        if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+            const success = await window.SupabaseManager.markSaleAsPaid(saleId);
+            if (success) {
+                this.updateInterface();
+                Utils.showNotification('Pago marcado como confirmado', 'success');
+            } else {
+                Utils.showNotification('Error actualizando el pago', 'error');
+            }
+        } else {
+            const sale = AppState.sales.find(s => s.id === saleId);
+            if (sale) {
+                sale.status = 'paid';
+                this.updateInterface();
+                autoSave();
+                Utils.showNotification('Pago marcado como confirmado', 'success');
+            }
         }
     },
 
     /**
      * Eliminar venta
      */
-    deleteSale: function(saleId) {
+    deleteSale: async function(saleId) {
         if (!confirm('¿Estás seguro de eliminar esta venta?')) return;
         
         const saleIndex = AppState.sales.findIndex(s => s.id === saleId);
         if (saleIndex !== -1) {
             const sale = AppState.sales[saleIndex];
             
+            if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                const success = await window.SupabaseManager.deleteSale(saleId);
+            if (success) {
+                // Liberar números
+            sale.numbers.forEach(number => {
+                const button = document.getElementById(`number-${number}`);
+                    if (button) {
+                            button.classList.remove('sold');
+                            button.classList.add('available');
+                        }
+                    });
+                    
+                    this.updateInterface();
+                Utils.showNotification('Venta eliminada correctamente', 'success');
+            } else {
+                Utils.showNotification('Error eliminando la venta', 'error');
+            }
+        } else {
             // Liberar números
             sale.numbers.forEach(number => {
                 const button = document.getElementById(`number-${number}`);
@@ -330,6 +376,7 @@ window.AdminManager = {
             this.updateInterface();
             autoSave();
             Utils.showNotification('Venta eliminada correctamente', 'success');
+        }
         }
     },
 

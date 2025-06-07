@@ -1,69 +1,37 @@
 /**
  * SUPABASE INTEGRATION - Sistema de Rifas Pampero
- * Alternativa open-source a Firebase
+ * Integración completa y funcional con Supabase
  */
-
-// Configuración Supabase (reemplazar con tus credenciales)
-const supabaseUrl = 'https://tu-proyecto.supabase.co';
-const supabaseKey = 'tu-anon-key';
-
-// Importar Supabase (se carga desde CDN)
-// <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
 window.SupabaseManager = {
     client: null,
     isConnected: false,
     
     /**
-     * Inicializar Supabase
+     * Inicializar Supabase con cliente existente
      */
-    init: async function() {
-        if (typeof supabase === 'undefined') {
-            console.warn('⚠️ Supabase no está disponible');
-            return false;
-        }
+    init: function(supabaseClient) {
+        this.client = supabaseClient;
+        this.isConnected = true;
+        console.log('✅ SupabaseManager inicializado');
         
-        try {
-            this.client = supabase.createClient(supabaseUrl, supabaseKey);
-            
-            // Probar conexión
-            const { data, error } = await this.client.from('raffles').select('count');
-            if (error && error.code !== 'PGRST116') throw error; // PGRST116 = tabla no existe (OK)
-            
-            this.isConnected = true;
-            console.log('✅ Supabase conectado correctamente');
-            
-            // Crear tablas si no existen
-            await this.createTables();
-            
-            // Migrar datos locales
-            await this.migrateLocalData();
-            
-            // Configurar suscripciones en tiempo real
-            this.setupRealtimeSubscriptions();
-            
-            return true;
-        } catch (error) {
-            console.error('❌ Error conectando Supabase:', error);
-            this.isConnected = false;
-            return false;
-        }
-    },
-
-    /**
-     * Crear tablas necesarias
-     */
-    createTables: async function() {
-        // Las tablas se crean desde el dashboard de Supabase
-        // Aquí solo verificamos que existan
-        console.log('ℹ️ Verificar tablas en Supabase Dashboard');
+        // Migrar datos locales si existen
+        this.migrateLocalData();
+        
+        // Configurar listeners en tiempo real
+        this.setupRealtimeListeners();
+        
+        return true;
     },
 
     /**
      * Guardar configuración de rifa
      */
     saveRaffleConfig: async function(config) {
-        if (!this.isConnected) return Storage.save('raffleConfig', config);
+        if (!this.isConnected) {
+            console.warn('⚠️ Supabase no conectado, guardando localmente');
+            return Storage.save('raffleConfig', config);
+        }
         
         try {
             const { data, error } = await this.client
@@ -71,15 +39,22 @@ window.SupabaseManager = {
                 .upsert([{
                     id: 'current',
                     config: config,
-                    created_at: new Date(),
-                    updated_at: new Date()
-                }]);
+                    updated_at: new Date().toISOString()
+                }], {
+                    onConflict: 'id'
+                });
                 
             if (error) throw error;
             console.log('✅ Configuración guardada en Supabase');
+            
+            // También guardar localmente como backup
+            Storage.save('raffleConfig', config);
+            
         } catch (error) {
             console.error('❌ Error guardando configuración:', error);
+            // Fallback a localStorage
             Storage.save('raffleConfig', config);
+            throw error;
         }
     },
 
@@ -88,6 +63,7 @@ window.SupabaseManager = {
      */
     saveSale: async function(sale) {
         if (!this.isConnected) {
+            console.warn('⚠️ Supabase no conectado, guardando localmente');
             AppState.sales.push(sale);
             return Storage.save('sales', AppState.sales);
         }
@@ -96,69 +72,285 @@ window.SupabaseManager = {
             const { data, error } = await this.client
                 .from('sales')
                 .insert([{
-                    ...sale,
-                    created_at: new Date(),
-                    updated_at: new Date()
-                }]);
+                    raffle_id: 'current',
+                    numbers: sale.numbers,
+                    buyer: sale.buyer,
+                    payment_method: sale.paymentMethod,
+                    total: sale.total,
+                    status: sale.status,
+                    created_at: new Date().toISOString()
+                }])
+                .select();
                 
             if (error) throw error;
+            
+            // Actualizar el sale con el ID de la base de datos
+            if (data && data[0]) {
+                sale.id = data[0].id;
+                sale.created_at = data[0].created_at;
+            }
+            
             console.log('✅ Venta guardada en Supabase');
-        } catch (error) {
-            console.error('❌ Error guardando venta:', error);
+            
+            // Actualizar estado local
             AppState.sales.push(sale);
             Storage.save('sales', AppState.sales);
+            
+        } catch (error) {
+            console.error('❌ Error guardando venta:', error);
+            // Fallback a localStorage
+            AppState.sales.push(sale);
+            Storage.save('sales', AppState.sales);
+            throw error;
         }
     },
 
     /**
-     * Cargar todos los datos
+     * Guardar reserva
+     */
+    saveReservation: async function(reservation) {
+        if (!this.isConnected) {
+            console.warn('⚠️ Supabase no conectado, guardando localmente');
+            AppState.reservations.push(reservation);
+            return Storage.save('reservations', AppState.reservations);
+        }
+        
+        try {
+            const { data, error } = await this.client
+                .from('reservations')
+                .insert([{
+                    raffle_id: 'current',
+                    numbers: reservation.numbers,
+                    buyer: reservation.buyer,
+                    total: reservation.total,
+                    status: reservation.status,
+                    expires_at: reservation.expiresAt.toISOString(),
+                    created_at: new Date().toISOString()
+                }])
+                .select();
+                
+            if (error) throw error;
+            
+            // Actualizar la reserva con el ID de la base de datos
+            if (data && data[0]) {
+                reservation.id = data[0].id;
+                reservation.created_at = data[0].created_at;
+            }
+            
+            console.log('✅ Reserva guardada en Supabase');
+            
+            // Actualizar estado local
+            AppState.reservations.push(reservation);
+            Storage.save('reservations', AppState.reservations);
+            
+        } catch (error) {
+            console.error('❌ Error guardando reserva:', error);
+            // Fallback a localStorage
+            AppState.reservations.push(reservation);
+            Storage.save('reservations', AppState.reservations);
+            throw error;
+        }
+    },
+
+    /**
+     * Actualizar estado de reserva
+     */
+    updateReservationStatus: async function(reservationId, status) {
+        if (!this.isConnected) return false;
+        
+        try {
+            const { error } = await this.client
+                .from('reservations')
+                .update({ 
+                    status: status,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', reservationId);
+                
+            if (error) throw error;
+            
+            // Actualizar estado local
+            const reservation = AppState.reservations.find(r => r.id === reservationId);
+            if (reservation) {
+                reservation.status = status;
+                Storage.save('reservations', AppState.reservations);
+            }
+            
+            console.log(`✅ Reserva ${reservationId} actualizada a ${status}`);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error actualizando reserva:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Marcar venta como pagada
+     */
+    markSaleAsPaid: async function(saleId) {
+        if (!this.isConnected) {
+            // Actualizar solo localmente
+            const sale = AppState.sales.find(s => s.id === saleId);
+            if (sale) {
+                sale.status = 'paid';
+                Storage.save('sales', AppState.sales);
+            }
+            return true;
+        }
+        
+        try {
+            const { error } = await this.client
+                .from('sales')
+                .update({ 
+                    status: 'paid',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', saleId);
+                
+            if (error) throw error;
+            
+            // Actualizar estado local
+            const sale = AppState.sales.find(s => s.id === saleId);
+            if (sale) {
+                sale.status = 'paid';
+                Storage.save('sales', AppState.sales);
+            }
+            
+            console.log(`✅ Venta ${saleId} marcada como pagada`);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error actualizando venta:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Eliminar venta
+     */
+    deleteSale: async function(saleId) {
+        if (!this.isConnected) {
+            // Eliminar solo localmente
+            const saleIndex = AppState.sales.findIndex(s => s.id === saleId);
+            if (saleIndex !== -1) {
+                AppState.sales.splice(saleIndex, 1);
+                Storage.save('sales', AppState.sales);
+            }
+            return true;
+        }
+        
+        try {
+            const { error } = await this.client
+                .from('sales')
+                .delete()
+                .eq('id', saleId);
+                
+            if (error) throw error;
+            
+            // Actualizar estado local
+            const saleIndex = AppState.sales.findIndex(s => s.id === saleId);
+            if (saleIndex !== -1) {
+                AppState.sales.splice(saleIndex, 1);
+                Storage.save('sales', AppState.sales);
+            }
+            
+            console.log(`✅ Venta ${saleId} eliminada`);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error eliminando venta:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Cargar todos los datos desde Supabase
      */
     loadAllData: async function() {
-        if (!this.isConnected) return loadFromStorage();
+        if (!this.isConnected) {
+            console.log('📱 Supabase no conectado, cargando desde localStorage');
+            return loadFromStorage();
+        }
         
         try {
             // Cargar configuración
-            const { data: configData } = await this.client
+            const { data: configData, error: configError } = await this.client
                 .from('raffles')
                 .select('config')
                 .eq('id', 'current')
                 .single();
                 
-            if (configData) {
+            if (configError && configError.code !== 'PGRST116') {
+                console.error('Error cargando configuración:', configError);
+            } else if (configData) {
                 AppState.raffleConfig = configData.config;
+                AppState.raffleConfig.createdAt = DateUtils.parseDate(configData.config.createdAt);
             }
 
             // Cargar ventas
-            const { data: salesData } = await this.client
+            const { data: salesData, error: salesError } = await this.client
                 .from('sales')
                 .select('*')
+                .eq('raffle_id', 'current')
                 .order('created_at', { ascending: false });
                 
-            AppState.sales = salesData || [];
+            if (salesError) {
+                console.error('Error cargando ventas:', salesError);
+            } else {
+                AppState.sales = (salesData || []).map(sale => ({
+                    id: sale.id,
+                    numbers: sale.numbers,
+                    buyer: sale.buyer,
+                    paymentMethod: sale.payment_method,
+                    total: sale.total,
+                    status: sale.status,
+                    date: DateUtils.parseDate(sale.created_at)
+                }));
+            }
 
             // Cargar reservas
-            const { data: reservationsData } = await this.client
+            const { data: reservationsData, error: reservationsError } = await this.client
                 .from('reservations')
                 .select('*')
+                .eq('raffle_id', 'current')
                 .order('created_at', { ascending: false });
                 
-            AppState.reservations = reservationsData || [];
+            if (reservationsError) {
+                console.error('Error cargando reservas:', reservationsError);
+            } else {
+                AppState.reservations = (reservationsData || []).map(reservation => ({
+                    id: reservation.id,
+                    numbers: reservation.numbers,
+                    buyer: reservation.buyer,
+                    total: reservation.total,
+                    status: reservation.status,
+                    createdAt: DateUtils.parseDate(reservation.created_at),
+                    expiresAt: DateUtils.parseDate(reservation.expires_at)
+                }));
+            }
 
             console.log('✅ Datos cargados desde Supabase');
             
+            // Guardar también en localStorage como backup
+            Storage.save('raffleConfig', AppState.raffleConfig);
+            Storage.save('sales', AppState.sales);
+            Storage.save('reservations', AppState.reservations);
+            
         } catch (error) {
-            console.error('❌ Error cargando datos:', error);
+            console.error('❌ Error cargando datos de Supabase:', error);
+            // Fallback a localStorage
             loadFromStorage();
         }
     },
 
     /**
-     * Configurar suscripciones en tiempo real
+     * Configurar listeners en tiempo real
      */
-    setupRealtimeSubscriptions: function() {
+    setupRealtimeListeners: function() {
         if (!this.isConnected) return;
         
-        // Suscripción a cambios en ventas
+        // Listener para ventas
         this.client
             .channel('sales_changes')
             .on('postgres_changes', { 
@@ -167,11 +359,15 @@ window.SupabaseManager = {
                 table: 'sales' 
             }, (payload) => {
                 console.log('🔄 Cambio en ventas:', payload);
-                this.loadAllData();
+                // Recargar datos cuando hay cambios
+                this.loadAllData().then(() => {
+                    if (typeof AdminManager !== 'undefined') AdminManager.updateInterface();
+                    if (typeof NumbersManager !== 'undefined') NumbersManager.updateDisplay();
+                });
             })
             .subscribe();
 
-        // Suscripción a cambios en reservas
+        // Listener para reservas
         this.client
             .channel('reservations_changes')
             .on('postgres_changes', { 
@@ -180,38 +376,109 @@ window.SupabaseManager = {
                 table: 'reservations' 
             }, (payload) => {
                 console.log('🔄 Cambio en reservas:', payload);
-                this.loadAllData();
+                // Recargar datos cuando hay cambios
+                this.loadAllData().then(() => {
+                    if (typeof AdminManager !== 'undefined') AdminManager.updateInterface();
+                    if (typeof NumbersManager !== 'undefined') NumbersManager.updateDisplay();
+                });
             })
             .subscribe();
+
+        console.log('🔄 Listeners de tiempo real configurados');
     },
 
     /**
-     * Migrar datos locales
+     * Migrar datos locales a Supabase
      */
     migrateLocalData: async function() {
+        if (!this.isConnected) return;
+        
         const localConfig = Storage.load('raffleConfig');
         const localSales = Storage.load('sales', []);
         const localReservations = Storage.load('reservations', []);
 
-        if (localConfig && AppState.sales.length === 0) {
-            console.log('🔄 Migrando datos locales a Supabase...');
+        // Solo migrar si hay datos locales
+        if (localConfig || localSales.length > 0 || localReservations.length > 0) {
+            console.log('🔄 Verificando migración de datos locales...');
             
-            await this.saveRaffleConfig(localConfig);
-            
-            for (const sale of localSales) {
-                await this.saveSale(sale);
+            try {
+                // Verificar si ya hay datos en Supabase
+                const { data: existingConfig } = await this.client
+                    .from('raffles')
+                    .select('id')
+                    .eq('id', 'current')
+                    .single();
+                
+                const { data: existingSales } = await this.client
+                    .from('sales')
+                    .select('id')
+                    .eq('raffle_id', 'current')
+                    .limit(1);
+                
+                // Solo migrar si no hay datos en Supabase
+                if (!existingConfig && localConfig) {
+                    console.log('🔄 Migrando configuración...');
+                    await this.saveRaffleConfig(localConfig);
+                }
+                
+                if ((!existingSales || existingSales.length === 0) && localSales.length > 0) {
+                    console.log('🔄 Migrando ventas...');
+                    for (const sale of localSales) {
+                        try {
+                            await this.saveSale(sale);
+                        } catch (error) {
+                            console.error('Error migrando venta:', error);
+                        }
+                    }
+                }
+                
+                if (localReservations.length > 0) {
+                    console.log('🔄 Migrando reservas...');
+                    for (const reservation of localReservations) {
+                        try {
+                            await this.saveReservation(reservation);
+                        } catch (error) {
+                            console.error('Error migrando reserva:', error);
+                        }
+                    }
+                }
+                
+                console.log('✅ Migración completada');
+                
+            } catch (error) {
+                console.error('❌ Error en migración:', error);
             }
+        }
+    },
+
+    /**
+     * Obtener estadísticas de la base de datos
+     */
+    getStats: async function() {
+        if (!this.isConnected) return null;
+        
+        try {
+            const { data: salesCount } = await this.client
+                .from('sales')
+                .select('*', { count: 'exact', head: true })
+                .eq('raffle_id', 'current');
+                
+            const { data: reservationsCount } = await this.client
+                .from('reservations')
+                .select('*', { count: 'exact', head: true })
+                .eq('raffle_id', 'current')
+                .eq('status', 'active');
             
-            console.log('✅ Migración completada');
+            return {
+                totalSales: salesCount?.length || 0,
+                activeReservations: reservationsCount?.length || 0,
+                lastUpdate: new Date()
+            };
+        } catch (error) {
+            console.error('Error obteniendo estadísticas:', error);
+            return null;
         }
     }
 };
 
-// Auto-inicializar si Supabase está disponible
-if (typeof supabase !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', function() {
-        SupabaseManager.init();
-    });
-}
-
-console.log('✅ Supabase.js cargado correctamente');
+console.log('✅ Supabase.js (actualizado) cargado correctamente');

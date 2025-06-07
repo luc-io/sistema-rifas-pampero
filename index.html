@@ -240,30 +240,6 @@
 
     <!-- Supabase SDK -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <script>
-        // Configuración Supabase
-        const supabaseUrl = 'https://ssmpnzcjhrjqhglqkmoe.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzbXBuemNqaHJqcWhnbHFrbW9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2MDI1NDgsImV4cCI6MjA0OTE3ODU0OH0.RXR9xLdpKznj8aowQGsj3dKkrxKKKKpRogqtjBBgZKs';
-        
-        try {
-            const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-            window.supabaseClient = supabaseClient;
-            
-            // Actualizar indicador
-            updateDbStatus('🚀 Supabase conectado', '#d4edda');
-        } catch (error) {
-            console.warn('Supabase no configurado:', error.message);
-            updateDbStatus('📱 Modo local (localStorage)', '#fff3cd');
-        }
-        
-        function updateDbStatus(message, color) {
-            const status = document.getElementById('dbStatus');
-            if (status) {
-                status.textContent = message;
-                status.style.background = color;
-            }
-        }
-    </script>
 
     <!-- Scripts principales -->
     <script src="js/utils.js"></script>

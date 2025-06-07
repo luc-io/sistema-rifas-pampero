@@ -358,7 +358,7 @@ window.NumbersManager = {
     /**
      * Completar compra o reserva
      */
-    completePurchase: function() {
+    completePurchase: async function() {
         const buyerData = {
             name: Utils.sanitizeInput(document.getElementById('buyerName').value),
             lastName: Utils.sanitizeInput(document.getElementById('buyerLastName').value),
@@ -383,16 +383,16 @@ window.NumbersManager = {
         }
 
         if (AppState.currentAction === 'reserve') {
-            this.createReservation(buyerData);
+            await this.createReservation(buyerData);
         } else {
-            this.createSale(buyerData, paymentMethod);
+            await this.createSale(buyerData, paymentMethod);
         }
     },
 
     /**
      * Crear reserva
      */
-    createReservation: function(buyerData) {
+    createReservation: async function(buyerData) {
         const expirationDate = DateUtils.createExpirationDate(AppState.raffleConfig.reservationTime);
 
         const reservation = {
@@ -405,7 +405,18 @@ window.NumbersManager = {
             expiresAt: expirationDate
         };
 
-        AppState.reservations.push(reservation);
+        // Guardar en Supabase
+        try {
+            if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                await window.SupabaseManager.saveReservation(reservation);
+            } else {
+                AppState.reservations.push(reservation);
+                autoSave();
+            }
+        } catch (error) {
+            console.error('Error guardando reserva:', error);
+            Utils.showNotification('Error guardando reserva, pero se guardó localmente', 'warning');
+        }
 
         // Marcar números como reservados
         AppState.selectedNumbers.forEach(number => {
@@ -423,7 +434,6 @@ window.NumbersManager = {
         this.updateSelectionSummary();
         if (AdminManager.updateInterface) AdminManager.updateInterface();
         this.closePurchaseModal();
-        autoSave();
 
         this.showReservationConfirmation(reservation, whatsappMessage);
     },
@@ -431,7 +441,7 @@ window.NumbersManager = {
     /**
      * Crear venta
      */
-    createSale: function(buyerData, paymentMethod) {
+    createSale: async function(buyerData, paymentMethod) {
         const status = paymentMethod === 'transferencia' ? 'pending' : 'paid';
 
         const sale = {
@@ -444,7 +454,18 @@ window.NumbersManager = {
             date: new Date()
         };
 
-        AppState.sales.push(sale);
+        // Guardar en Supabase
+        try {
+            if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                await window.SupabaseManager.saveSale(sale);
+            } else {
+                AppState.sales.push(sale);
+                autoSave();
+            }
+        } catch (error) {
+            console.error('Error guardando venta:', error);
+            Utils.showNotification('Error guardando venta, pero se guardó localmente', 'warning');
+        }
 
         // Marcar números como vendidos
         AppState.selectedNumbers.forEach(number => {
@@ -463,7 +484,6 @@ window.NumbersManager = {
         this.updateDisplay();
         if (AdminManager.updateInterface) AdminManager.updateInterface();
         this.closePurchaseModal();
-        autoSave();
 
         this.showPurchaseConfirmation(sale, whatsappMessage);
     },
