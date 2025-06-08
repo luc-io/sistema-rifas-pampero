@@ -460,6 +460,7 @@ function loadFromLocalStorage() {
     if (savedSales.length > 0) {
         AppState.sales = savedSales.map(sale => ({
             ...sale,
+            buyer: SupabaseManager.migrateBuyerData ? SupabaseManager.migrateBuyerData(sale.buyer) : sale.buyer, // Migrar datos si es posible
             date: DateUtils.parseDate(sale.date)
         }));
         console.log(`📊 [LOAD] ${savedSales.length} ventas cargadas desde localStorage`);
@@ -468,6 +469,7 @@ function loadFromLocalStorage() {
     if (savedReservations.length > 0) {
         AppState.reservations = savedReservations.map(reservation => ({
             ...reservation,
+            buyer: SupabaseManager.migrateBuyerData ? SupabaseManager.migrateBuyerData(reservation.buyer) : reservation.buyer, // Migrar datos si es posible
             createdAt: DateUtils.parseDate(reservation.createdAt),
             expiresAt: DateUtils.parseDate(reservation.expiresAt)
         }));

@@ -285,6 +285,37 @@ window.NumbersManager = {
     },
 
     /**
+     * Migrar estructura de datos de compradores (compatibilidad hacia atrás)
+     */
+    migrateBuyerData: function(buyer) {
+        // Si ya tiene membershipArea, no hacer nada
+        if (buyer.membershipArea) {
+            return buyer;
+        }
+        
+        // Convertir estructura antigua a nueva
+        if (buyer.isMember === 'si' && buyer.memberActivities) {
+            // Mapear actividades antiguas a nuevas áreas
+            const activityToArea = {
+                'remo': 'remo',
+                'ecologia': 'ecologia', 
+                'nautica': 'nautica',
+                'pesca': 'pesca',
+                'multiple': 'ninguna', // Múltiples actividades -> Sin área específica
+                'ninguna': 'ninguna'
+            };
+            
+            buyer.membershipArea = activityToArea[buyer.memberActivities] || 'ninguna';
+        } else if (buyer.isMember === 'no') {
+            buyer.membershipArea = 'no_socio';
+        } else {
+            buyer.membershipArea = 'no_socio'; // Por defecto
+        }
+        
+        // Mantener campos antiguos para compatibilidad pero usar el nuevo
+        return buyer;
+    },
+    /**
      * Seleccionar comprador existente
      */
     selectExistingBuyer: function(name, lastName) {
@@ -295,7 +326,7 @@ window.NumbersManager = {
         ).sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
 
         if (buyerTransactions.length > 0) {
-            const latestBuyer = buyerTransactions[0].buyer;
+            const latestBuyer = this.migrateBuyerData(buyerTransactions[0].buyer);
             AppState.selectedBuyer = latestBuyer;
             
             // Llenar formulario con datos existentes
@@ -438,9 +469,14 @@ window.NumbersManager = {
         AppState.selectedNumbers = [];
         this.updateSelectionSummary();
         if (AdminManager.updateInterface) AdminManager.updateInterface();
-        this.closePurchaseModal();
-
+        
+        // Mostrar confirmación ANTES de cerrar el modal
         this.showReservationConfirmation(reservation, whatsappMessage);
+        
+        // Cerrar modal después de un delay para que se vea la confirmación
+        setTimeout(() => {
+            this.closePurchaseModal();
+        }, 500);
     },
 
     /**
@@ -492,9 +528,14 @@ window.NumbersManager = {
         this.updateSelectionSummary();
         this.updateDisplay();
         if (AdminManager.updateInterface) AdminManager.updateInterface();
-        this.closePurchaseModal();
-
+        
+        // Mostrar confirmación ANTES de cerrar el modal
         this.showPurchaseConfirmation(sale, whatsappMessage);
+        
+        // Cerrar modal después de un delay para que se vea la confirmación
+        setTimeout(() => {
+            this.closePurchaseModal();
+        }, 500);
     },
 
     /**

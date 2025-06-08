@@ -30,6 +30,36 @@ window.SupabaseManager = {
     },
 
     /**
+     * Migrar datos de comprador (compatibilidad hacia atrás)
+     */
+    migrateBuyerData: function(buyer) {
+        // Si ya tiene membershipArea, no hacer nada
+        if (buyer.membershipArea) {
+            return buyer;
+        }
+        
+        // Convertir estructura antigua a nueva
+        if (buyer.isMember === 'si' && buyer.memberActivities) {
+            const activityToArea = {
+                'remo': 'remo',
+                'ecologia': 'ecologia', 
+                'nautica': 'nautica',
+                'pesca': 'pesca',
+                'multiple': 'ninguna',
+                'ninguna': 'ninguna'
+            };
+            
+            buyer.membershipArea = activityToArea[buyer.memberActivities] || 'ninguna';
+        } else if (buyer.isMember === 'no') {
+            buyer.membershipArea = 'no_socio';
+        } else {
+            buyer.membershipArea = 'no_socio';
+        }
+        
+        return buyer;
+    },
+
+    /**
      * Guardar configuración de rifa
      */
     saveRaffleConfig: async function(config) {
@@ -280,9 +310,34 @@ window.SupabaseManager = {
     },
 
     /**
-     * Cargar todos los datos desde Supabase
+     * Migrar datos de comprador (compatibilidad hacia atrás)
      */
-    loadAllData: async function() {
+    migrateBuyerData: function(buyer) {
+        // Si ya tiene membershipArea, no hacer nada
+        if (buyer.membershipArea) {
+            return buyer;
+        }
+        
+        // Convertir estructura antigua a nueva
+        if (buyer.isMember === 'si' && buyer.memberActivities) {
+            const activityToArea = {
+                'remo': 'remo',
+                'ecologia': 'ecologia', 
+                'nautica': 'nautica',
+                'pesca': 'pesca',
+                'multiple': 'ninguna',
+                'ninguna': 'ninguna'
+            };
+            
+            buyer.membershipArea = activityToArea[buyer.memberActivities] || 'ninguna';
+        } else if (buyer.isMember === 'no') {
+            buyer.membershipArea = 'no_socio';
+        } else {
+            buyer.membershipArea = 'no_socio';
+        }
+        
+        return buyer;
+    },
         if (!this.isConnected) {
             console.log('📱 Supabase no conectado, usando datos locales');
             throw new Error('Supabase no conectado');
@@ -319,7 +374,7 @@ window.SupabaseManager = {
                 AppState.sales = (salesData || []).map(sale => ({
                     id: sale.id,
                     numbers: sale.numbers,
-                    buyer: sale.buyer,
+                    buyer: this.migrateBuyerData(sale.buyer), // Migrar datos del comprador
                     paymentMethod: sale.payment_method,
                     total: sale.total,
                     status: sale.status,
@@ -341,7 +396,7 @@ window.SupabaseManager = {
                 AppState.reservations = (reservationsData || []).map(reservation => ({
                     id: reservation.id,
                     numbers: reservation.numbers,
-                    buyer: reservation.buyer,
+                    buyer: this.migrateBuyerData(reservation.buyer), // Migrar datos del comprador
                     total: reservation.total,
                     status: reservation.status,
                     createdAt: DateUtils.parseDate(reservation.created_at),
