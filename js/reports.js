@@ -1,6 +1,6 @@
 /**
  * REPORTES Y ESTADÍSTICAS - Sistema de Rifas Pampero
- * Generación de reportes detallados y análisis
+ * Generación de reportes simplificados y optimizados
  */
 
 window.ReportsManager = {
@@ -20,593 +20,343 @@ window.ReportsManager = {
 
         const container = document.getElementById('reportsContent');
         container.innerHTML = `
-            <div class="filter-section">
-                <h3>🔍 Filtros de Reporte</h3>
-                <div class="filter-row">
-                    <label>Fecha desde:</label>
-                    <input type="date" id="dateFrom" onchange="ReportsManager.updateReports()">
-                </div>
-                <div class="filter-row">
-                    <label>Fecha hasta:</label>
-                    <input type="date" id="dateTo" onchange="ReportsManager.updateReports()">
-                </div>
-                <div class="filter-row">
-                    <label>Estado:</label>
-                    <select id="statusFilter" onchange="ReportsManager.updateReports()">
-                        <option value="">Todos</option>
-                        <option value="paid">Pagados</option>
-                        <option value="pending">Pendientes</option>
-                    </select>
-                </div>
-            </div>
-
             <div id="generalReport"></div>
-            <div id="buyersReport"></div>
-            <div id="numbersReport"></div>
-            <div id="navigationReport"></div>
             <div id="membershipReport"></div>
         `;
 
         this.generateGeneralReport();
-        this.generateBuyersReport();
-        this.generateNumbersReport();
-        this.generateNavigationReport();
         this.generateMembershipReport();
     },
 
     /**
-     * Obtener ventas filtradas
-     */
-    getFilteredSales: function() {
-        let filteredSales = [...AppState.sales];
-
-        const dateFrom = document.getElementById('dateFrom')?.value;
-        const dateTo = document.getElementById('dateTo')?.value;
-        const statusFilter = document.getElementById('statusFilter')?.value;
-
-        if (dateFrom) {
-            const fromDate = DateUtils.getStartOfDay(new Date(dateFrom));
-            filteredSales = filteredSales.filter(sale => sale.date >= fromDate);
-        }
-
-        if (dateTo) {
-            const toDate = DateUtils.getEndOfDay(new Date(dateTo));
-            filteredSales = filteredSales.filter(sale => sale.date <= toDate);
-        }
-
-        if (statusFilter) {
-            filteredSales = filteredSales.filter(sale => sale.status === statusFilter);
-        }
-
-        return filteredSales;
-    },
-
-    /**
-     * Reporte general
+     * Reporte general con gráfico de progreso
      */
     generateGeneralReport: function() {
-        const sales = this.getFilteredSales();
+        const sales = AppState.sales;
         const totalSales = sales.length;
         const totalNumbers = sales.reduce((sum, sale) => sum + sale.numbers.length, 0);
         const totalRevenue = sales.filter(s => s.status === 'paid').reduce((sum, sale) => sum + sale.total, 0);
         const pendingRevenue = sales.filter(s => s.status === 'pending').reduce((sum, sale) => sum + sale.total, 0);
-        const averagePerSale = totalSales > 0 ? totalRevenue / totalSales : 0;
         const percentageSold = AppState.raffleConfig ? (totalNumbers / AppState.raffleConfig.totalNumbers * 100) : 0;
+        const totalPotentialRevenue = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers * AppState.raffleConfig.price : 0;
+        const remainingNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - totalNumbers : 0;
 
         const container = document.getElementById('generalReport');
         container.innerHTML = `
             <div class="report-section">
                 <div class="report-header">
                     <div class="report-title">📊 Reporte General</div>
-                    <button class="btn btn-small" onclick="ReportsManager.exportGeneralReport()">📥 Exportar</button>
+                    <button class="btn btn-small" onclick="ReportsManager.exportGeneralReport()">📥 Exportar CSV</button>
                 </div>
                 
                 <div class="report-summary">
                     <div class="summary-stats">
                         <div class="summary-stat">
                             <div class="number">${totalSales}</div>
-                            <div class="label">Ventas</div>
+                            <div class="label">Ventas Realizadas</div>
                         </div>
                         <div class="summary-stat">
                             <div class="number">${totalNumbers}</div>
-                            <div class="label">Números vendidos</div>
+                            <div class="label">Números Vendidos</div>
+                        </div>
+                        <div class="summary-stat">
+                            <div class="number">${remainingNumbers}</div>
+                            <div class="label">Números Disponibles</div>
                         </div>
                         <div class="summary-stat">
                             <div class="number">${Utils.formatPrice(totalRevenue)}</div>
-                            <div class="label">Ingresos confirmados</div>
+                            <div class="label">Ingresos Confirmados</div>
                         </div>
                         <div class="summary-stat">
                             <div class="number">${Utils.formatPrice(pendingRevenue)}</div>
-                            <div class="label">Ingresos pendientes</div>
-                        </div>
-                        <div class="summary-stat">
-                            <div class="number">${Utils.formatPrice(averagePerSale)}</div>
-                            <div class="label">Promedio por venta</div>
+                            <div class="label">Ingresos Pendientes</div>
                         </div>
                         <div class="summary-stat">
                             <div class="number">${percentageSold.toFixed(1)}%</div>
-                            <div class="label">Porcentaje vendido</div>
+                            <div class="label">Porcentaje Vendido</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráfico de progreso -->
+                    <div class="progress-section" style="margin-top: 30px;">
+                        <h4>🎯 Progreso de la Rifa</h4>
+                        <div class="progress-container" style="margin: 15px 0;">
+                            <div class="progress-bar" style="
+                                background: #e0e0e0; 
+                                border-radius: 15px; 
+                                height: 40px; 
+                                position: relative; 
+                                overflow: hidden;
+                                box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+                            ">
+                                <div class="progress-fill" style="
+                                    background: linear-gradient(90deg, #4CAF50 0%, #45a049 50%, #66BB6A 100%); 
+                                    height: 100%; 
+                                    width: ${Math.min(percentageSold, 100)}%; 
+                                    transition: width 0.5s ease;
+                                    position: relative;
+                                ">
+                                    <div style="
+                                        position: absolute;
+                                        top: 0;
+                                        left: 0;
+                                        right: 0;
+                                        bottom: 0;
+                                        background: linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.2) 50%, transparent 50%, transparent 75%, rgba(255,255,255,0.2) 75%);
+                                        background-size: 20px 20px;
+                                        animation: progress-stripes 1s linear infinite;
+                                    "></div>
+                                </div>
+                                <div style="
+                                    position: absolute; 
+                                    top: 50%; 
+                                    left: 50%; 
+                                    transform: translate(-50%, -50%); 
+                                    font-weight: bold; 
+                                    font-size: 16px;
+                                    color: ${percentageSold > 50 ? 'white' : '#333'};
+                                    text-shadow: ${percentageSold > 50 ? '1px 1px 2px rgba(0,0,0,0.3)' : '1px 1px 2px rgba(255,255,255,0.8)'};
+                                ">
+                                    ${percentageSold.toFixed(1)}% (${totalNumbers}/${AppState.raffleConfig.totalNumbers})
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 14px; color: #666;">
+                                <span><strong>Meta:</strong> ${Utils.formatPrice(totalPotentialRevenue)}</span>
+                                <span><strong>Recaudado:</strong> ${Utils.formatPrice(totalRevenue + pendingRevenue)}</span>
+                            </div>
+                            
+                            <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #4CAF50;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span><strong>Faltante para meta:</strong></span>
+                                    <span style="font-size: 18px; font-weight: bold; color: #4CAF50;">
+                                        ${Utils.formatPrice(totalPotentialRevenue - (totalRevenue + pendingRevenue))}
+                                    </span>
+                                </div>
+                                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                                    Quedan ${remainingNumbers} números disponibles
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        `;
-    },
-
-    /**
-     * Reporte de compradores
-     */
-    generateBuyersReport: function() {
-        const sales = this.getFilteredSales();
-        
-        // Consolidar compradores
-        const buyersMap = new Map();
-        sales.forEach(sale => {
-            const key = `${sale.buyer.name}_${sale.buyer.lastName}_${sale.buyer.phone}`;
-            if (!buyersMap.has(key)) {
-                buyersMap.set(key, {
-                    buyer: sale.buyer,
-                    sales: [],
-                    totalNumbers: 0,
-                    totalSpent: 0
-                });
-            }
-            const buyerData = buyersMap.get(key);
-            buyerData.sales.push(sale);
-            buyerData.totalNumbers += sale.numbers.length;
-            buyerData.totalSpent += sale.total;
-        });
-
-        const buyersData = Array.from(buyersMap.values())
-            .sort((a, b) => b.totalSpent - a.totalSpent);
-
-        const topBuyers = buyersData.slice(0, 10);
-
-        const container = document.getElementById('buyersReport');
-        container.innerHTML = `
-            <div class="report-section">
-                <div class="report-header">
-                    <div class="report-title">👥 Top 10 Compradores</div>
-                    <button class="btn btn-small" onclick="ReportsManager.exportBuyersReport()">📥 Exportar</button>
-                </div>
-                
-                <div class="report-summary">
-                    <p><strong>Total de compradores únicos:</strong> ${buyersData.length}</p>
-                    
-                    <table class="report-table">
-                        <thead>
-                            <tr>
-                                <th>Comprador</th>
-                                <th>Teléfono</th>
-                                <th>Compras</th>
-                                <th>Números</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${topBuyers.map(buyer => `
-                                <tr>
-                                    <td>${buyer.buyer.name} ${buyer.buyer.lastName}</td>
-                                    <td>${buyer.buyer.phone}</td>
-                                    <td>${buyer.sales.length}</td>
-                                    <td>${buyer.totalNumbers}</td>
-                                    <td>${Utils.formatPrice(buyer.totalSpent)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    },
-
-    /**
-     * Reporte de números
-     */
-    generateNumbersReport: function() {
-        const sales = this.getFilteredSales();
-        
-        // Análisis de números
-        const numberFrequency = new Map();
-        const numbersByRange = {
-            '000-099': 0,
-            '100-199': 0,
-            '200-299': 0,
-            '300-399': 0,
-            '400-499': 0,
-            '500-599': 0,
-            '600-699': 0,
-            '700-799': 0,
-            '800-899': 0,
-            '900-999': 0
-        };
-
-        sales.forEach(sale => {
-            sale.numbers.forEach(number => {
-                // Frecuencia por número
-                numberFrequency.set(number, (numberFrequency.get(number) || 0) + 1);
-                
-                // Números por rango
-                const range = Math.floor(number / 100);
-                const rangeKey = Object.keys(numbersByRange)[range];
-                if (rangeKey) {
-                    numbersByRange[rangeKey]++;
+            
+            <style>
+                @keyframes progress-stripes {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 40px 0; }
                 }
-            });
-        });
-
-        const mostSoldNumbers = Array.from(numberFrequency.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 10);
-
-        const container = document.getElementById('numbersReport');
-        container.innerHTML = `
-            <div class="report-section">
-                <div class="report-header">
-                    <div class="report-title">🔢 Análisis de Números</div>
-                    <button class="btn btn-small" onclick="ReportsManager.exportNumbersReport()">📥 Exportar</button>
-                </div>
-                
-                <div class="report-summary">
-                    <h4>Números más vendidos:</h4>
-                    <table class="report-table">
-                        <thead>
-                            <tr>
-                                <th>Número</th>
-                                <th>Veces vendido</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${mostSoldNumbers.map(([number, count]) => `
-                                <tr>
-                                    <td>${Utils.formatNumber(number)}</td>
-                                    <td>${count}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-
-                    <h4 style="margin-top: 20px;">Distribución por rangos:</h4>
-                    <table class="report-table">
-                        <thead>
-                            <tr>
-                                <th>Rango</th>
-                                <th>Números vendidos</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${Object.entries(numbersByRange).map(([range, count]) => `
-                                <tr>
-                                    <td>${range}</td>
-                                    <td>${count}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            </style>
         `;
     },
 
     /**
-     * Reporte de interés en navegación
-     */
-    generateNavigationReport: function() {
-        const sales = this.getFilteredSales();
-        
-        const navigationInterest = {
-            'aprender': 0,
-            'recreativo': 0,
-            'ambos': 0,
-            'no': 0,
-            '': 0
-        };
-
-        sales.forEach(sale => {
-            const interest = sale.buyer.navigationInterest || '';
-            if (navigationInterest.hasOwnProperty(interest)) {
-                navigationInterest[interest]++;
-            }
-        });
-
-        const totalResponses = sales.length;
-
-        const container = document.getElementById('navigationReport');
-        container.innerHTML = `
-            <div class="report-section">
-                <div class="report-header">
-                    <div class="report-title">⛵ Interés en Navegación</div>
-                    <button class="btn btn-small" onclick="ReportsManager.exportNavigationReport()">📥 Exportar</button>
-                </div>
-                
-                <div class="report-summary">
-                    <table class="report-table">
-                        <thead>
-                            <tr>
-                                <th>Interés</th>
-                                <th>Cantidad</th>
-                                <th>Porcentaje</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${Object.entries(navigationInterest).map(([interest, count]) => {
-                                const percentage = totalResponses > 0 ? (count / totalResponses * 100).toFixed(1) : 0;
-                                const label = AppConstants.INTEREST_LABELS[interest] || 'No especificado';
-                                return `
-                                    <tr>
-                                        <td>${label}</td>
-                                        <td>${count}</td>
-                                        <td>${percentage}%</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    },
-
-    /**
-     * Reporte de membresía del club
+     * Reporte de membresía del club (actualizado con nuevo campo)
      */
     generateMembershipReport: function() {
-        const sales = this.getFilteredSales();
+        const sales = AppState.sales;
         
         const membershipData = {
-            'si': 0,
-            'no': 0,
-            '': 0
-        };
-
-        const activitiesData = {
+            'no_socio': 0,
+            'nautica': 0,
             'remo': 0,
             'ecologia': 0,
-            'nautica': 0,
             'pesca': 0,
-            'multiple': 0,
             'ninguna': 0,
             '': 0
         };
 
+        // Contar por área de membresía
         sales.forEach(sale => {
-            const isMember = sale.buyer.isMember || '';
-            if (membershipData.hasOwnProperty(isMember)) {
-                membershipData[isMember]++;
-            }
-
-            if (isMember === 'si') {
-                const activity = sale.buyer.memberActivities || '';
-                if (activitiesData.hasOwnProperty(activity)) {
-                    activitiesData[activity]++;
-                }
+            const membershipArea = sale.buyer.membershipArea || '';
+            if (membershipData.hasOwnProperty(membershipArea)) {
+                membershipData[membershipArea]++;
             }
         });
 
         const totalResponses = sales.length;
-        const totalMembers = membershipData['si'];
+        const totalMembers = totalResponses - membershipData['no_socio'] - membershipData[''];
+        const totalNonMembers = membershipData['no_socio'];
+
+        // Calcular datos para el gráfico circular
+        const chartData = Object.entries(membershipData)
+            .filter(([key, count]) => count > 0)
+            .map(([key, count]) => ({
+                label: AppConstants.MEMBERSHIP_LABELS[key] || 'No especificado',
+                value: count,
+                percentage: totalResponses > 0 ? (count / totalResponses * 100) : 0,
+                color: this.getMembershipColor(key)
+            }));
 
         const container = document.getElementById('membershipReport');
         container.innerHTML = `
             <div class="report-section">
                 <div class="report-header">
-                    <div class="report-title">🏠 Membresía del Club</div>
-                    <button class="btn btn-small" onclick="ReportsManager.exportMembershipReport()">📥 Exportar</button>
+                    <div class="report-title">🏠 Relación con el Club</div>
+                    <button class="btn btn-small" onclick="ReportsManager.exportMembershipReport()">📥 Exportar CSV</button>
                 </div>
                 
                 <div class="report-summary">
-                    <h4>Estado de membresía:</h4>
+                    <!-- Estadísticas resumidas -->
+                    <div class="membership-overview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                        <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">${totalMembers}</div>
+                            <div style="color: #666;">Socios del Club</div>
+                            <div style="font-size: 12px; color: #888;">${totalResponses > 0 ? ((totalMembers / totalResponses) * 100).toFixed(1) : 0}% del total</div>
+                        </div>
+                        <div style="background: #fff3e0; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #ff9800;">${totalNonMembers}</div>
+                            <div style="color: #666;">No Socios</div>
+                            <div style="font-size: 12px; color: #888;">${totalResponses > 0 ? ((totalNonMembers / totalResponses) * 100).toFixed(1) : 0}% del total</div>
+                        </div>
+                        <div style="background: #f3e5f5; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #9c27b0;">${totalResponses}</div>
+                            <div style="color: #666;">Total Compradores</div>
+                            <div style="font-size: 12px; color: #888;">100% de las ventas</div>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico de barras horizontal -->
+                    <div class="membership-chart" style="margin-bottom: 25px;">
+                        <h4>📊 Distribución por Área</h4>
+                        <div class="chart-container" style="margin: 15px 0;">
+                            ${chartData.map(item => `
+                                <div class="chart-bar" style="margin-bottom: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <span style="font-weight: 500; font-size: 14px;">${item.label}</span>
+                                        <span style="font-size: 12px; color: #666;">${item.value} (${item.percentage.toFixed(1)}%)</span>
+                                    </div>
+                                    <div style="background: #e0e0e0; border-radius: 4px; height: 20px; position: relative; overflow: hidden;">
+                                        <div style="
+                                            background: ${item.color}; 
+                                            height: 100%; 
+                                            width: ${item.percentage}%; 
+                                            transition: width 0.5s ease;
+                                            border-radius: 4px;
+                                        "></div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Tabla detallada -->
+                    <h4>📋 Detalle por Categoría</h4>
                     <table class="report-table">
                         <thead>
                             <tr>
-                                <th>Membresía</th>
+                                <th>Relación con el Club</th>
                                 <th>Cantidad</th>
                                 <th>Porcentaje</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${Object.entries(membershipData).map(([membership, count]) => {
-                                const percentage = totalResponses > 0 ? (count / totalResponses * 100).toFixed(1) : 0;
-                                const label = AppConstants.MEMBER_LABELS[membership] || 'No especificado';
-                                return `
-                                    <tr>
-                                        <td>${label}</td>
-                                        <td>${count}</td>
-                                        <td>${percentage}%</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-
-                    ${totalMembers > 0 ? `
-                        <h4 style="margin-top: 20px;">Actividades de socios (${totalMembers} socios):</h4>
-                        <table class="report-table">
-                            <thead>
-                                <tr>
-                                    <th>Actividad</th>
-                                    <th>Cantidad</th>
-                                    <th>% de socios</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${Object.entries(activitiesData).map(([activity, count]) => {
-                                    const percentage = totalMembers > 0 ? (count / totalMembers * 100).toFixed(1) : 0;
-                                    const label = AppConstants.ACTIVITY_LABELS[activity] || 'No especificado';
+                            ${Object.entries(membershipData)
+                                .filter(([key, count]) => count > 0)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([membership, count]) => {
+                                    const percentage = totalResponses > 0 ? (count / totalResponses * 100).toFixed(1) : 0;
+                                    const label = AppConstants.MEMBERSHIP_LABELS[membership] || 'No especificado';
                                     return `
                                         <tr>
-                                            <td>${label}</td>
-                                            <td>${count}</td>
+                                            <td>
+                                                <span style="display: inline-block; width: 12px; height: 12px; background: ${this.getMembershipColor(membership)}; border-radius: 2px; margin-right: 8px;"></span>
+                                                ${label}
+                                            </td>
+                                            <td><strong>${count}</strong></td>
                                             <td>${percentage}%</td>
                                         </tr>
                                     `;
                                 }).join('')}
-                            </tbody>
-                        </table>
-                    ` : ''}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         `;
+    },
+
+    /**
+     * Obtener color para cada tipo de membresía
+     */
+    getMembershipColor: function(membershipType) {
+        const colors = {
+            'no_socio': '#ff9800',     // Naranja
+            'nautica': '#2196F3',      // Azul
+            'remo': '#4CAF50',         // Verde
+            'ecologia': '#8BC34A',     // Verde claro
+            'pesca': '#00BCD4',        // Cian
+            'ninguna': '#9C27B0',      // Púrpura
+            '': '#757575'              // Gris
+        };
+        return colors[membershipType] || '#757575';
     },
 
     /**
      * Exportar reporte general
      */
     exportGeneralReport: function() {
-        const sales = this.getFilteredSales();
+        const sales = AppState.sales;
         const totalSales = sales.length;
         const totalNumbers = sales.reduce((sum, sale) => sum + sale.numbers.length, 0);
         const totalRevenue = sales.filter(s => s.status === 'paid').reduce((sum, sale) => sum + sale.total, 0);
         const pendingRevenue = sales.filter(s => s.status === 'pending').reduce((sum, sale) => sum + sale.total, 0);
+        const percentageSold = AppState.raffleConfig ? (totalNumbers / AppState.raffleConfig.totalNumbers * 100) : 0;
+        const remainingNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - totalNumbers : 0;
 
         let csvContent = "Métrica,Valor\n";
         csvContent += `"Total de ventas","${totalSales}"\n`;
         csvContent += `"Números vendidos","${totalNumbers}"\n`;
+        csvContent += `"Números disponibles","${remainingNumbers}"\n`;
         csvContent += `"Ingresos confirmados","${totalRevenue}"\n`;
         csvContent += `"Ingresos pendientes","${pendingRevenue}"\n`;
-        csvContent += `"Promedio por venta","${totalSales > 0 ? (totalRevenue / totalSales).toFixed(2) : 0}"\n`;
-        csvContent += `"Porcentaje vendido","${AppState.raffleConfig ? (totalNumbers / AppState.raffleConfig.totalNumbers * 100).toFixed(1) : 0}%"\n`;
+        csvContent += `"Ingresos totales","${totalRevenue + pendingRevenue}"\n`;
+        csvContent += `"Porcentaje vendido","${percentageSold.toFixed(1)}%"\n`;
 
         const filename = `reporte_general_${DateUtils.formatForInput(new Date())}.csv`;
         Utils.downloadCSV(csvContent, filename);
-    },
-
-    /**
-     * Exportar reporte de compradores
-     */
-    exportBuyersReport: function() {
-        const sales = this.getFilteredSales();
-        
-        const buyersMap = new Map();
-        sales.forEach(sale => {
-            const key = `${sale.buyer.name}_${sale.buyer.lastName}_${sale.buyer.phone}`;
-            if (!buyersMap.has(key)) {
-                buyersMap.set(key, {
-                    buyer: sale.buyer,
-                    sales: [],
-                    totalNumbers: 0,
-                    totalSpent: 0
-                });
-            }
-            const buyerData = buyersMap.get(key);
-            buyerData.sales.push(sale);
-            buyerData.totalNumbers += sale.numbers.length;
-            buyerData.totalSpent += sale.total;
-        });
-
-        const buyersData = Array.from(buyersMap.values())
-            .sort((a, b) => b.totalSpent - a.totalSpent);
-
-        let csvContent = "Nombre,Apellido,Teléfono,Email,Compras,Números,Total Gastado\n";
-        buyersData.forEach(buyer => {
-            csvContent += `"${buyer.buyer.name}","${buyer.buyer.lastName}","${buyer.buyer.phone}","${buyer.buyer.email || ''}","${buyer.sales.length}","${buyer.totalNumbers}","${buyer.totalSpent}"\n`;
-        });
-
-        const filename = `reporte_compradores_${DateUtils.formatForInput(new Date())}.csv`;
-        Utils.downloadCSV(csvContent, filename);
-    },
-
-    /**
-     * Exportar reporte de números
-     */
-    exportNumbersReport: function() {
-        // Este método se puede implementar si se necesita
-        Utils.showNotification('Exportación de números próximamente', 'info');
-    },
-
-    /**
-     * Exportar reporte de navegación
-     */
-    exportNavigationReport: function() {
-        const sales = this.getFilteredSales();
-        
-        let csvContent = "Interés en Navegación,Cantidad,Porcentaje\n";
-        
-        const navigationInterest = {
-            'aprender': 0,
-            'recreativo': 0,
-            'ambos': 0,
-            'no': 0,
-            '': 0
-        };
-
-        sales.forEach(sale => {
-            const interest = sale.buyer.navigationInterest || '';
-            if (navigationInterest.hasOwnProperty(interest)) {
-                navigationInterest[interest]++;
-            }
-        });
-
-        const totalResponses = sales.length;
-
-        Object.entries(navigationInterest).forEach(([interest, count]) => {
-            const percentage = totalResponses > 0 ? (count / totalResponses * 100).toFixed(1) : 0;
-            const label = AppConstants.INTEREST_LABELS[interest] || 'No especificado';
-            csvContent += `"${label}","${count}","${percentage}%"\n`;
-        });
-
-        const filename = `reporte_navegacion_${DateUtils.formatForInput(new Date())}.csv`;
-        Utils.downloadCSV(csvContent, filename);
+        Utils.showNotification('Reporte general exportado correctamente', 'success');
     },
 
     /**
      * Exportar reporte de membresía
      */
     exportMembershipReport: function() {
-        const sales = this.getFilteredSales();
+        const sales = AppState.sales;
         
-        let csvContent = "Categoría,Subcategoría,Cantidad,Porcentaje\n";
+        let csvContent = "Relación con el Club,Cantidad,Porcentaje\n";
         
         const membershipData = {
-            'si': 0,
-            'no': 0,
-            '': 0
-        };
-
-        const activitiesData = {
+            'no_socio': 0,
+            'nautica': 0,
             'remo': 0,
             'ecologia': 0,
-            'nautica': 0,
             'pesca': 0,
-            'multiple': 0,
             'ninguna': 0,
             '': 0
         };
 
         sales.forEach(sale => {
-            const isMember = sale.buyer.isMember || '';
-            if (membershipData.hasOwnProperty(isMember)) {
-                membershipData[isMember]++;
-            }
-
-            if (isMember === 'si') {
-                const activity = sale.buyer.memberActivities || '';
-                if (activitiesData.hasOwnProperty(activity)) {
-                    activitiesData[activity]++;
-                }
+            const membershipArea = sale.buyer.membershipArea || '';
+            if (membershipData.hasOwnProperty(membershipArea)) {
+                membershipData[membershipArea]++;
             }
         });
 
         const totalResponses = sales.length;
-        const totalMembers = membershipData['si'];
 
-        // Membresía
-        Object.entries(membershipData).forEach(([membership, count]) => {
-            const percentage = totalResponses > 0 ? (count / totalResponses * 100).toFixed(1) : 0;
-            const label = AppConstants.MEMBER_LABELS[membership] || 'No especificado';
-            csvContent += `"Membresía","${label}","${count}","${percentage}%"\n`;
-        });
-
-        // Actividades
-        Object.entries(activitiesData).forEach(([activity, count]) => {
-            const percentage = totalMembers > 0 ? (count / totalMembers * 100).toFixed(1) : 0;
-            const label = AppConstants.ACTIVITY_LABELS[activity] || 'No especificado';
-            csvContent += `"Actividades de socios","${label}","${count}","${percentage}%"\n`;
-        });
+        Object.entries(membershipData)
+            .filter(([key, count]) => count > 0)
+            .forEach(([membership, count]) => {
+                const percentage = totalResponses > 0 ? (count / totalResponses * 100).toFixed(1) : 0;
+                const label = AppConstants.MEMBERSHIP_LABELS[membership] || 'No especificado';
+                csvContent += `"${label}","${count}","${percentage}%"\n`;
+            });
 
         const filename = `reporte_membresia_${DateUtils.formatForInput(new Date())}.csv`;
         Utils.downloadCSV(csvContent, filename);
+        Utils.showNotification('Reporte de membresía exportado correctamente', 'success');
     }
 };
 
-console.log('✅ Reports.js cargado correctamente');
+console.log('✅ Reports.js optimizado cargado correctamente');

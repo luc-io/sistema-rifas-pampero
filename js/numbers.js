@@ -157,12 +157,37 @@ window.NumbersManager = {
 
         if (action === 'reserve') {
             modalTitle.textContent = `⏰ Reservar Números (${AppState.raffleConfig.reservationTime}h)`;
-            // Ocultar método de pago para reservas
-            document.getElementById('paymentMethod').closest('.form-group').style.display = 'none';
-            document.getElementById('transferInfo').style.display = 'none';
+            // Ocultar botones de pago para reservas
+            const paymentButtons = modal.querySelector('.payment-buttons');
+            if (paymentButtons) {
+                paymentButtons.style.display = 'none';
+            }
+            
+            // Agregar botón de reserva
+            const transferInfo = document.getElementById('transferInfo');
+            if (!document.getElementById('reserveButton')) {
+                const reserveButton = document.createElement('button');
+                reserveButton.id = 'reserveButton';
+                reserveButton.className = 'btn';
+                reserveButton.textContent = '⏰ Confirmar Reserva';
+                reserveButton.style.width = '100%';
+                reserveButton.style.marginTop = '10px';
+                reserveButton.onclick = () => this.completePurchase();
+                transferInfo.parentNode.insertBefore(reserveButton, transferInfo.nextSibling);
+            }
         } else {
             modalTitle.textContent = '💰 Completar Compra';
-            document.getElementById('paymentMethod').closest('.form-group').style.display = 'block';
+            // Mostrar botones de pago para compras
+            const paymentButtons = modal.querySelector('.payment-buttons');
+            if (paymentButtons) {
+                paymentButtons.style.display = 'flex';
+            }
+            
+            // Remover botón de reserva si existe
+            const reserveButton = document.getElementById('reserveButton');
+            if (reserveButton) {
+                reserveButton.remove();
+            }
         }
 
         modal.style.display = 'block';
@@ -175,11 +200,20 @@ window.NumbersManager = {
         document.getElementById('purchaseModal').style.display = 'none';
         
         // Limpiar formulario
-        const fields = ['buyerName', 'buyerLastName', 'buyerPhone', 'buyerEmail', 'buyerInstagram', 'paymentMethod', 'isMember', 'memberActivities'];
+        const fields = ['buyerName', 'buyerLastName', 'buyerPhone', 'buyerEmail', 'buyerInstagram', 'membershipArea'];
         fields.forEach(field => {
             const element = document.getElementById(field);
             if (element) element.value = '';
         });
+        
+        // Ocultar información de transferencia
+        document.getElementById('transferInfo').style.display = 'none';
+        
+        // Remover botón de reserva si existe
+        const reserveButton = document.getElementById('reserveButton');
+        if (reserveButton) {
+            reserveButton.remove();
+        }
         
         // Limpiar sugerencias y consolidación
         document.getElementById('buyerSuggestions').style.display = 'none';
@@ -187,40 +221,10 @@ window.NumbersManager = {
         if (consolidation) {
             consolidation.remove();
         }
-        
-        // Resetear estado
-        AppState.selectedBuyer = null;
-        this.toggleMemberActivities();
+
     },
 
-    /**
-     * Manejar cambio en método de pago
-     */
-    handlePaymentMethodChange: function() {
-        const paymentMethod = document.getElementById('paymentMethod').value;
-        const transferInfo = document.getElementById('transferInfo');
-        
-        if (paymentMethod === 'transferencia') {
-            transferInfo.style.display = 'block';
-        } else {
-            transferInfo.style.display = 'none';
-        }
-    },
 
-    /**
-     * Mostrar/ocultar actividades de socio
-     */
-    toggleMemberActivities: function() {
-        const isMember = document.getElementById('isMember').value;
-        const activitiesGroup = document.getElementById('memberActivitiesGroup');
-        
-        if (isMember === 'si') {
-            activitiesGroup.style.display = 'block';
-        } else {
-            activitiesGroup.style.display = 'none';
-            document.getElementById('memberActivities').value = '';
-        }
-    },
 
     /**
      * Buscar compradores existentes
@@ -300,11 +304,7 @@ window.NumbersManager = {
             document.getElementById('buyerPhone').value = latestBuyer.phone;
             document.getElementById('buyerEmail').value = latestBuyer.email || '';
             document.getElementById('buyerInstagram').value = latestBuyer.instagram || '';
-            document.getElementById('isMember').value = latestBuyer.isMember || '';
-            document.getElementById('memberActivities').value = latestBuyer.memberActivities || '';
-            
-            // Mostrar/ocultar actividades de socio
-            this.toggleMemberActivities();
+            document.getElementById('membershipArea').value = latestBuyer.membershipArea || '';
             
             // Mostrar consolidación de compras
             this.showBuyerConsolidation(buyerTransactions);
@@ -358,15 +358,14 @@ window.NumbersManager = {
     /**
      * Completar compra o reserva
      */
-    completePurchase: async function() {
+    completePurchase: async function(paymentMethod = null) {
         const buyerData = {
             name: Utils.sanitizeInput(document.getElementById('buyerName').value),
             lastName: Utils.sanitizeInput(document.getElementById('buyerLastName').value),
             phone: Utils.sanitizeInput(document.getElementById('buyerPhone').value),
             email: Utils.sanitizeInput(document.getElementById('buyerEmail').value),
             instagram: Utils.sanitizeInput(document.getElementById('buyerInstagram').value),
-            isMember: document.getElementById('isMember').value,
-            memberActivities: document.getElementById('memberActivities').value
+            membershipArea: document.getElementById('membershipArea').value
         };
 
         const errors = Utils.validateBuyerData(buyerData);
@@ -375,17 +374,19 @@ window.NumbersManager = {
             return;
         }
 
-        const paymentMethod = document.getElementById('paymentMethod').value;
-        
-        if (AppState.currentAction === 'buy' && !paymentMethod) {
-            Utils.showNotification('Por favor selecciona un método de pago', 'error');
-            return;
-        }
-
-        if (AppState.currentAction === 'reserve') {
-            await this.createReservation(buyerData);
-        } else {
+        // Si se especificó método de pago, proceder con la compra
+        if (paymentMethod) {
+            // Mostrar info de transferencia si es necesario
+            if (paymentMethod === 'transferencia') {
+                document.getElementById('transferInfo').style.display = 'block';
+                // Dar tiempo para que el usuario vea la información
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+            
             await this.createSale(buyerData, paymentMethod);
+        } else {
+            // Si no hay método de pago, es una reserva
+            await this.createReservation(buyerData);
         }
     },
 
@@ -551,12 +552,8 @@ window.NumbersManager = {
             message += `📷 *Instagram:* ${sale.buyer.instagram}\n`;
         }
         
-        if (sale.buyer.isMember && sale.buyer.isMember !== '') {
-            message += `🏠 *Socio del club:* ${AppConstants.MEMBER_LABELS[sale.buyer.isMember]}\n`;
-            
-            if (sale.buyer.isMember === 'si' && sale.buyer.memberActivities) {
-                message += `🎣 *Actividades:* ${AppConstants.ACTIVITY_LABELS[sale.buyer.memberActivities]}\n`;
-            }
+        if (sale.buyer.membershipArea && sale.buyer.membershipArea !== '') {
+            message += `🏠 *Relación con el club:* ${AppConstants.MEMBERSHIP_LABELS[sale.buyer.membershipArea]}\n`;
         }
         
         message += `📅 *Fecha:* ${Utils.formatDateTime(sale.date)}\n\n`;

@@ -15,27 +15,13 @@ window.AppState = {
 
 // Constantes de la aplicación
 window.AppConstants = {
-    INTEREST_LABELS: {
-        'aprender': 'Aprender a navegar',
-        'recreativo': 'Navegar recreativamente',
-        'ambos': 'Aprender y navegar recreativamente',
-        'no': 'No le interesa',
-        '': 'No especificado'
-    },
-    
-    MEMBER_LABELS: {
-        'si': 'Sí',
-        'no': 'No',
-        '': 'No especificado'
-    },
-    
-    ACTIVITY_LABELS: {
-        'remo': 'Remo',
-        'ecologia': 'Ecología',
-        'nautica': 'Náutica',
-        'pesca': 'Pesca',
-        'multiple': 'Múltiples actividades',
-        'ninguna': 'Ninguna en particular',
+    MEMBERSHIP_LABELS: {
+        'no_socio': 'No es socio',
+        'nautica': 'Socio - Náutica',
+        'remo': 'Socio - Remo',
+        'ecologia': 'Socio - Ecología',
+        'pesca': 'Socio - Pesca',
+        'ninguna': 'Socio - Sin área específica',
         '': 'No especificado'
     },
 
@@ -525,6 +511,11 @@ function updateInterfaceAfterLoad() {
         if (typeof AdminManager !== 'undefined') {
             AdminManager.createInterface();
             AdminManager.updateInterface();
+        }
+        
+        // Inicializar utilidades
+        if (typeof UtilitiesManager !== 'undefined') {
+            UtilitiesManager.init();
         }
         
         console.log('🎨 [LOAD] Interfaz actualizada');

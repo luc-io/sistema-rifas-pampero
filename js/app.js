@@ -206,6 +206,11 @@ window.RaffleApp = {
         NumbersManager.createInterface();
         AdminManager.createInterface();
         NumbersManager.startReservationChecker();
+        
+        // Inicializar utilidades
+        if (typeof UtilitiesManager !== 'undefined') {
+            UtilitiesManager.init();
+        }
 
         Utils.showNotification('¡Rifa configurada exitosamente!', 'success');
         showTab('numbers');

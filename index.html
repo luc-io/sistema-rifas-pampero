@@ -35,7 +35,7 @@
             <button class="tab" onclick="showTab('numbers')">Números</button>
             <button class="tab" onclick="showTab('admin')">Administrar</button>
             <button class="tab" onclick="showTab('reports')">Reportes</button>
-            <button class="tab" onclick="showTab('backup')">Backup</button>
+            <button class="tab" onclick="showTab('backup')">Utilidades</button>
         </div>
 
         <!-- Tab: Configuración -->
@@ -119,36 +119,43 @@
             </div>
         </div>
 
-        <!-- Tab: Backup -->
+        <!-- Tab: Utilidades -->
         <div class="tab-content" id="backup">
             <div id="backupContent">
-                <div class="backup-section">
-                    <div class="backup-warning">⚠️ Importante: Respalda tus datos regularmente</div>
-                    <p>Los datos se almacenan en Supabase con respaldo local automático.</p>
+                <div class="utilities-section">
+                    <h3>🔧 Utilidades del Sistema</h3>
+                    <p>Herramientas útiles para la gestión de tu rifa con Supabase.</p>
                     
-                    <div style="margin: 20px 0;">
-                        <button class="btn" onclick="BackupManager.exportFullBackup()">📥 Descargar Backup Completo</button>
-                        <button class="btn btn-secondary" onclick="BackupManager.importFullBackup()">📤 Restaurar Backup</button>
+                    <div class="utility-group" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>📄 Exportación de Datos</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 15px 0;">
+                            <button class="btn btn-info" onclick="UtilitiesManager.exportAllSales()">📊 Exportar Todas las Ventas</button>
+                            <button class="btn btn-info" onclick="UtilitiesManager.exportBuyersDatabase()">📍 Exportar Base de Compradores</button>
+                        </div>
+                        <small style="color: #666;">Exporta datos en formato CSV para análisis externo, contabilidad o respaldo personal.</small>
                     </div>
                     
-                    <div style="margin: 10px 0;">
-                        <button class="btn btn-info btn-small" onclick="BackupManager.exportConfigOnly()">📋 Exportar Solo Configuración</button>
-                        <button class="btn btn-info btn-small" onclick="BackupManager.exportSalesOnly()">📊 Exportar Solo Ventas</button>
+                    <div class="utility-group" style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>☁️ Estado de la Base de Datos</h4>
+                        <div id="supabaseStatus" style="margin: 15px 0; padding: 15px; border-radius: 8px; background: white; border: 1px solid #ddd;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                <div id="connectionIndicator" style="width: 12px; height: 12px; border-radius: 50%; background: #ccc;"></div>
+                                <span id="connectionText">Verificando conexión...</span>
+                            </div>
+                            <div id="connectionDetails" style="font-size: 12px; color: #666;"></div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="UtilitiesManager.testConnection()">🔍 Verificar Conexión</button>
+                        <small style="display: block; margin-top: 10px; color: #666;">Verifica que la conexión con Supabase esté funcionando correctamente.</small>
                     </div>
                     
-                    <input type="file" id="backupFileInput" accept=".json" style="display: none;" onchange="BackupManager.handleBackupImport(event)">
-                    
-                    <div class="last-backup" id="lastBackupInfo">
-                        Último backup: Nunca
+                    <div class="utility-group" style="background: #fff3e0; padding: 20px; border-radius: 8px;">
+                        <h4>📊 Estadísticas Rápidas</h4>
+                        <div id="quickStats" style="margin: 15px 0; padding: 15px; background: white; border-radius: 8px; border: 1px solid #ddd;">
+                            <div style="font-size: 14px; color: #666;">Configura tu rifa para ver estadísticas</div>
+                        </div>
+                        <button class="btn btn-secondary" onclick="UtilitiesManager.updateQuickStats()">🔄 Actualizar Estadísticas</button>
+                        <small style="display: block; margin-top: 10px; color: #666;">Resumen rápido del estado actual de tu rifa.</small>
                     </div>
-                </div>
-                
-                <div class="report-section">
-                    <h3>🔧 Herramientas de Datos</h3>
-                    <button class="btn btn-warning" onclick="BackupManager.clearAllData()">🗑️ Limpiar Todos los Datos</button>
-                    <button class="btn btn-info" onclick="BackupManager.validateData()">✅ Validar Integridad de Datos</button>
-                    
-                    <div id="dataValidationResult" style="margin-top: 15px;"></div>
                 </div>
             </div>
         </div>
@@ -193,37 +200,22 @@
                 <small style="color: #6c757d;">Para enviarte novedades sobre navegación del club</small>
             </div>
 
-
-
             <div class="form-group">
-                <label for="isMember">¿Eres socio del club?</label>
-                <select id="isMember" onchange="NumbersManager.toggleMemberActivities()">
+                <label for="membershipArea">Relación con el club</label>
+                <select id="membershipArea">
                     <option value="">Seleccionar...</option>
-                    <option value="si">Sí, soy socio</option>
-                    <option value="no">No soy socio</option>
+                    <option value="no_socio">No soy socio</option>
+                    <option value="nautica">Socio - Náutica</option>
+                    <option value="remo">Socio - Remo</option>
+                    <option value="ecologia">Socio - Ecología</option>
+                    <option value="pesca">Socio - Pesca</option>
+                    <option value="ninguna">Socio - Sin área específica</option>
                 </select>
             </div>
 
-            <div class="form-group" id="memberActivitiesGroup" style="display: none;">
-                <label for="memberActivities">¿Qué actividades realizas en el club?</label>
-                <select id="memberActivities">
-                    <option value="">Seleccionar...</option>
-                    <option value="remo">Remo</option>
-                    <option value="ecologia">Ecología</option>
-                    <option value="nautica">Náutica</option>
-                    <option value="pesca">Pesca</option>
-                    <option value="multiple">Múltiples actividades</option>
-                    <option value="ninguna">Ninguna en particular</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="paymentMethod">Método de Pago</label>
-                <select id="paymentMethod" onchange="NumbersManager.handlePaymentMethodChange()">
-                    <option value="">Seleccionar método...</option>
-                    <option value="efectivo">Efectivo</option>
-                    <option value="transferencia">Transferencia Bancaria</option>
-                </select>
+            <div class="payment-buttons" style="display: flex; gap: 10px; margin: 20px 0;">
+                <button class="btn" onclick="NumbersManager.completePurchase('efectivo')" style="flex: 1;">💰 Comprar en Efectivo</button>
+                <button class="btn" onclick="NumbersManager.completePurchase('transferencia')" style="flex: 1; background: #2196F3;">💳 Comprar con Transferencia</button>
             </div>
 
             <div id="transferInfo" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 10px 0;">
@@ -235,9 +227,9 @@
                     💡 <strong>Importante:</strong> Envía el comprobante por WhatsApp al número que aparece abajo para confirmar tu compra.
                 </p>
             </div>
+            
+            <button class="btn btn-secondary" onclick="NumbersManager.closePurchaseModal()" style="width: 100%; margin-top: 10px;">Cancelar</button>
 
-            <button class="btn" onclick="NumbersManager.completePurchase()">Confirmar Compra</button>
-            <button class="btn btn-secondary" onclick="NumbersManager.closePurchaseModal()">Cancelar</button>
         </div>
     </div>
 
@@ -248,7 +240,7 @@
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/supabase.js"></script>
-    <script src="js/backup.js"></script>
+    <script src="js/utilities.js"></script>
     <script src="js/numbers.js"></script>
     <script src="js/admin.js"></script>
     <script src="js/reports.js"></script>
