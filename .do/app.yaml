@@ -4,6 +4,7 @@ name: pampero-rifas
 static_sites:
 - name: web
   build_command: node inject-env.js
+  output_dir: public
   index_document: index.html
   error_document: index.html
   catchall_document: index.html
