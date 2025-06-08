@@ -11,8 +11,13 @@ window.SupabaseManager = {
      * Inicializar Supabase con cliente existente
      */
     init: function(supabaseClient) {
+        console.log('🔍 [SUPABASE] Iniciando SupabaseManager.init...');
+        console.log('🔍 [SUPABASE] Cliente recibido:', !!supabaseClient);
+        
         this.client = supabaseClient;
         this.isConnected = true;
+        
+        console.log('🔍 [SUPABASE] Cliente asignado, isConnected =', this.isConnected);
         console.log('✅ SupabaseManager inicializado');
         
         // Migrar datos locales si existen
@@ -28,12 +33,18 @@ window.SupabaseManager = {
      * Guardar configuración de rifa
      */
     saveRaffleConfig: async function(config) {
+        console.log('🔍 [SUPABASE] saveRaffleConfig llamado');
+        console.log('🔍 [SUPABASE] isConnected =', this.isConnected);
+        console.log('🔍 [SUPABASE] client existe =', !!this.client);
+        
         if (!this.isConnected) {
             console.warn('⚠️ Supabase no conectado, guardando localmente');
             return Storage.save('raffleConfig', config);
         }
         
         try {
+            console.log('🔍 [SUPABASE] Intentando upsert en tabla raffles...');
+            
             const { data, error } = await this.client
                 .from('raffles')
                 .upsert([{
@@ -44,14 +55,26 @@ window.SupabaseManager = {
                     onConflict: 'id'
                 });
                 
-            if (error) throw error;
-            console.log('✅ Configuración guardada en Supabase');
+            if (error) {
+                console.error('🔴 [SUPABASE] Error en upsert:', error);
+                throw error;
+            }
+            
+            console.log('✅ [SUPABASE] Configuración guardada en Supabase exitosamente');
+            console.log('📊 [SUPABASE] Datos guardados:', data);
             
             // También guardar localmente como backup
             Storage.save('raffleConfig', config);
             
         } catch (error) {
-            console.error('❌ Error guardando configuración:', error);
+            console.error('❌ [SUPABASE] Error guardando configuración:', error);
+            console.error('📊 [SUPABASE] Detalles del error:', {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint
+            });
+            
             // Fallback a localStorage
             Storage.save('raffleConfig', config);
             throw error;

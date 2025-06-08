@@ -6,29 +6,118 @@
 // Gestión principal de la aplicación
 window.RaffleApp = {
     /**
-     * Inicializar Supabase
+     * Inicializar Supabase de forma segura
      */
     initSupabase: function() {
-        // Configuración Supabase
-        const supabaseUrl = 'https://ssmpnzcjhrjqhglqkmoe.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzbXBuemNqaHJqcWhnbHFrbW9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2MDI1NDgsImV4cCI6MjA0OTE3ODU0OH0.RXR9xLdpKznj8aowQGsj3dKkrxKKKKpRogqtjBBgZKs';
+        console.log('🔍 [DEBUG] Iniciando initSupabase de forma segura...');
+        
+        // Verificar que AppConfig esté disponible
+        if (!window.AppConfig) {
+            console.error('❌ [DEBUG] AppConfig no está disponible');
+            this.updateDbStatus('❌ Error de configuración', '#f8d7da');
+            return false;
+        }
+        
+        // Inicializar configuración segura
+        const configInitialized = AppConfig.init();
+        
+        if (!configInitialized) {
+            console.warn('⚠️ [DEBUG] Configuración no inicializada');
+            this.updateDbStatus('🔑 Configuración requerida', '#fff3cd');
+            return false;
+        }
+        
+        // Verificar modo demo
+        if (localStorage.getItem('demo_mode') === 'true') {
+            console.log('🎮 [DEBUG] Modo demo activado');
+            this.updateDbStatus('🎮 Modo Demo (Solo localStorage)', '#e7f3ff');
+            return false;
+        }
+        
+        // Obtener credenciales de forma segura
+        const supabaseUrl = AppConfig.supabase.url;
+        const supabaseKey = AppConfig.supabase.anonKey;
+        
+        console.log('🔍 [DEBUG] URL configurada:', !!supabaseUrl);
+        console.log('🔍 [DEBUG] Key configurada:', !!supabaseKey);
+        console.log('🔍 [DEBUG] SDK disponible:', typeof supabase !== 'undefined');
+        
+        if (!supabaseUrl || !supabaseKey) {
+            console.error('🔴 [DEBUG] Credenciales incompletas');
+            this.updateDbStatus('❌ Credenciales incompletas', '#f8d7da');
+            return false;
+        }
         
         try {
             const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
             window.supabaseClient = supabaseClient;
+            console.log('🔍 [DEBUG] Cliente creado exitosamente');
             
             // Inicializar SupabaseManager
             if (window.SupabaseManager) {
+                console.log('🔍 [DEBUG] SupabaseManager disponible, inicializando...');
                 SupabaseManager.init(supabaseClient);
-                this.updateDbStatus('🚀 Supabase conectado', '#d4edda');
-                console.log('✅ Supabase inicializado correctamente');
+                console.log('🔍 [DEBUG] SupabaseManager.isConnected:', SupabaseManager.isConnected);
+                
+                if (SupabaseManager.isConnected) {
+                    this.updateDbStatus('🚀 Supabase conectado de forma segura', '#d4edda');
+                    console.log('✅ Supabase inicializado correctamente');
+                    
+                    // Test de conexión rápido
+                    this.testSupabaseConnection();
+                    return true;
+                } else {
+                    console.warn('⚠️ SupabaseManager no se conectó correctamente');
+                    this.updateDbStatus('⚠️ Error de conexión', '#f8d7da');
+                    return false;
+                }
             } else {
                 console.warn('⚠️ SupabaseManager no está disponible');
                 this.updateDbStatus('⚠️ Error de configuración', '#f8d7da');
+                return false;
             }
         } catch (error) {
-            console.warn('Supabase no configurado:', error.message);
+            console.error('🔴 [DEBUG] Error creando cliente:', error);
+            console.warn('Error en configuración de Supabase:', error.message);
             this.updateDbStatus('📱 Modo local (localStorage)', '#fff3cd');
+            return false;
+        }
+    },
+
+    /**
+     * Test rápido de conexión
+     */
+    testSupabaseConnection: async function() {
+        console.log('🔍 [DEBUG] Ejecutando test de conexión...');
+        
+        if (!window.supabaseClient) {
+            console.error('🔴 [DEBUG] No hay cliente disponible para test');
+            return;
+        }
+        
+        try {
+            const { data, error } = await window.supabaseClient
+                .from('raffles')
+                .select('*')
+                .limit(1);
+                
+            if (error) {
+                console.error('🔴 [DEBUG] Error en test de conexión:', error);
+                
+                if (error.code === 'PGRST116') {
+                    console.warn('🟡 [DEBUG] Tabla "raffles" no existe - necesitas ejecutar el SQL');
+                    this.updateDbStatus('⚠️ Faltan tablas en Supabase', '#fff3cd');
+                } else {
+                    console.error('🔴 [DEBUG] Error de configuración:', error.message);
+                    this.updateDbStatus('❌ Error de configuración', '#f8d7da');
+                }
+            } else {
+                console.log('✅ [DEBUG] Test de conexión exitoso!', data);
+                this.updateDbStatus('🚀 Supabase conectado y operativo', '#d4edda');
+            }
+        } catch (error) {
+            console.error('🔴 [DEBUG] Error de red en test:', error);
+            this.updateDbStatus('📡 Error de conexión', '#f8d7da');
         }
     },
 
@@ -82,19 +171,33 @@ window.RaffleApp = {
         document.getElementById('raffleSubtitle').textContent = `${organization} - $${price} por número`;
 
         // Guardar configuración usando SupabaseManager si está disponible
+        console.log('🔍 [DEBUG] Guardando configuración...');
+        console.log('🔍 [DEBUG] SupabaseManager disponible:', !!window.SupabaseManager);
+        console.log('🔍 [DEBUG] SupabaseManager.isConnected:', window.SupabaseManager?.isConnected);
+        
         if (window.SupabaseManager && SupabaseManager.isConnected) {
+            console.log('✅ [DEBUG] Guardando en Supabase...');
             SupabaseManager.saveRaffleConfig(AppState.raffleConfig)
                 .then(() => {
                     console.log('✅ Configuración guardada en Supabase');
+                    Utils.showNotification('Configuración guardada en Supabase', 'success');
                 })
                 .catch((error) => {
                     console.error('❌ Error guardando en Supabase:', error);
+                    Utils.showNotification('Error guardando en Supabase, guardado localmente', 'warning');
                     // Fallback a localStorage
                     autoSave();
                 });
         } else {
+            console.log('🟡 [DEBUG] Guardando en localStorage (fallback)');
+            if (!window.SupabaseManager) {
+                console.warn('⚠️ [DEBUG] SupabaseManager no disponible');
+            } else {
+                console.warn('⚠️ [DEBUG] SupabaseManager no conectado');
+            }
             // Usar localStorage como fallback
             autoSave();
+            Utils.showNotification('Configuración guardada localmente', 'info');
         }
 
         // Inicializar interfaces
