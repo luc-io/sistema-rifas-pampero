@@ -380,39 +380,87 @@ window.onclick = function(event) {
     }
 };
 
-// Auto-guardado cada vez que cambie algo
-window.autoSave = function() {
-    if (AppState.raffleConfig) {
-        // Intentar guardar en base de datos si está disponible
-        if (window.FirebaseManager && window.FirebaseManager.isConnected) {
-            // Firebase guardará automáticamente
-            console.log('💾 Guardando en Firebase...');
-        } else if (window.SupabaseManager && window.SupabaseManager.isConnected) {
-            // Supabase guardará automáticamente
-            console.log('💾 Guardando en Supabase...');
-        } else {
-            // Fallback a localStorage
+// Auto-guardado SOLO en Supabase (localStorage solo como cache)
+window.autoSave = async function() {
+    if (!AppState.raffleConfig) return;
+    
+    console.log('💾 [AUTOSAVE] Iniciando guardado...');
+    
+    // Verificar conexión a Supabase
+    if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+        console.log('☁️ [AUTOSAVE] Guardando en Supabase (fuente principal)...');
+        
+        try {
+            // Guardar configuración
+            await SupabaseManager.saveRaffleConfig(AppState.raffleConfig);
+            console.log('✅ [AUTOSAVE] Configuración guardada en Supabase');
+            
+            // Cache local (solo backup temporal)
             Storage.save('raffleConfig', AppState.raffleConfig);
             Storage.save('sales', AppState.sales);
             Storage.save('reservations', AppState.reservations);
-            console.log('💾 Guardando en localStorage...');
+            
+            console.log('💾 [AUTOSAVE] Cache local actualizado');
+            
+        } catch (error) {
+            console.error('❌ [AUTOSAVE] Error guardando en Supabase:', error);
+            
+            // Solo si falla Supabase, guardar localmente
+            Storage.save('raffleConfig', AppState.raffleConfig);
+            Storage.save('sales', AppState.sales);
+            Storage.save('reservations', AppState.reservations);
+            
+            Utils.showNotification('Error guardando en Supabase, guardado localmente', 'warning');
         }
+    } else {
+        console.log('📱 [AUTOSAVE] Supabase no disponible, guardando localmente');
+        
+        // Fallback solo si no hay Supabase
+        Storage.save('raffleConfig', AppState.raffleConfig);
+        Storage.save('sales', AppState.sales);
+        Storage.save('reservations', AppState.reservations);
+        
+        console.log('💾 [AUTOSAVE] Guardado en localStorage');
     }
 };
 
-// Función para cargar datos del almacenamiento
-window.loadFromStorage = function() {
-    // Intentar cargar desde base de datos primero
-    if (window.FirebaseManager && window.FirebaseManager.isConnected) {
-        console.log('📥 Cargando desde Firebase...');
-        return window.FirebaseManager.loadAllData();
-    } else if (window.SupabaseManager && window.SupabaseManager.isConnected) {
-        console.log('📥 Cargando desde Supabase...');
-        return window.SupabaseManager.loadAllData();
+// Función para cargar datos SOLO desde Supabase (localStorage solo como fallback)
+window.loadFromStorage = async function() {
+    console.log('📥 [LOAD] Iniciando carga de datos...');
+    
+    // Prioridad 1: Cargar desde Supabase
+    if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+        console.log('☁️ [LOAD] Cargando desde Supabase (fuente principal)...');
+        
+        try {
+            await window.SupabaseManager.loadAllData();
+            console.log('✅ [LOAD] Datos cargados desde Supabase');
+            
+            // Actualizar cache local con datos de Supabase
+            if (AppState.raffleConfig) {
+                Storage.save('raffleConfig', AppState.raffleConfig);
+                Storage.save('sales', AppState.sales);
+                Storage.save('reservations', AppState.reservations);
+                console.log('💾 [LOAD] Cache local sincronizado con Supabase');
+            }
+            
+        } catch (error) {
+            console.error('❌ [LOAD] Error cargando desde Supabase:', error);
+            loadFromLocalStorage();
+        }
+    } else {
+        console.log('📱 [LOAD] Supabase no disponible, cargando desde localStorage');
+        loadFromLocalStorage();
     }
     
-    // Fallback a localStorage
-    console.log('📥 Cargando desde localStorage...');
+    // Actualizar interfaz después de cargar
+    updateInterfaceAfterLoad();
+};
+
+// Función para cargar desde localStorage (solo como fallback)
+function loadFromLocalStorage() {
+    console.log('📱 [LOAD] Cargando desde localStorage...');
+    
     const savedConfig = Storage.load('raffleConfig');
     const savedSales = Storage.load('sales', []);
     const savedReservations = Storage.load('reservations', []);
@@ -420,9 +468,33 @@ window.loadFromStorage = function() {
     if (savedConfig) {
         AppState.raffleConfig = savedConfig;
         AppState.raffleConfig.createdAt = DateUtils.parseDate(savedConfig.createdAt);
-        
-        document.getElementById('raffleTitle').textContent = savedConfig.name;
-        document.getElementById('raffleSubtitle').textContent = `${savedConfig.organization} - $${savedConfig.price} por número`;
+        console.log('📊 [LOAD] Configuración cargada desde localStorage');
+    }
+
+    if (savedSales.length > 0) {
+        AppState.sales = savedSales.map(sale => ({
+            ...sale,
+            date: DateUtils.parseDate(sale.date)
+        }));
+        console.log(`📊 [LOAD] ${savedSales.length} ventas cargadas desde localStorage`);
+    }
+
+    if (savedReservations.length > 0) {
+        AppState.reservations = savedReservations.map(reservation => ({
+            ...reservation,
+            createdAt: DateUtils.parseDate(reservation.createdAt),
+            expiresAt: DateUtils.parseDate(reservation.expiresAt)
+        }));
+        console.log(`📊 [LOAD] ${savedReservations.length} reservas cargadas desde localStorage`);
+    }
+}
+
+// Función para actualizar interfaz después de cargar datos
+function updateInterfaceAfterLoad() {
+    if (AppState.raffleConfig) {
+        // Actualizar UI
+        document.getElementById('raffleTitle').textContent = AppState.raffleConfig.name;
+        document.getElementById('raffleSubtitle').textContent = `${AppState.raffleConfig.organization} - ${AppState.raffleConfig.price} por número`;
         
         // Llenar formulario de configuración
         const fields = {
@@ -438,34 +510,27 @@ window.loadFromStorage = function() {
         Object.entries(fields).forEach(([fieldId, configKey]) => {
             const element = document.getElementById(fieldId);
             if (element) {
-                element.value = savedConfig[configKey];
+                element.value = AppState.raffleConfig[configKey];
             }
         });
+        
+        // Inicializar interfaces
+        if (typeof NumbersManager !== 'undefined') {
+            NumbersManager.createInterface();
+            NumbersManager.updateDisplay();
+            NumbersManager.startReservationChecker();
+        }
+        
+        if (typeof AdminManager !== 'undefined') {
+            AdminManager.createInterface();
+            AdminManager.updateInterface();
+        }
+        
+        console.log('🎨 [LOAD] Interfaz actualizada');
+    } else {
+        console.log('ℹ️ [LOAD] No hay configuración, esperando setup inicial');
     }
-
-    if (savedSales.length > 0) {
-        AppState.sales = savedSales.map(sale => ({
-            ...sale,
-            date: DateUtils.parseDate(sale.date)
-        }));
-    }
-
-    if (savedReservations.length > 0) {
-        AppState.reservations = savedReservations.map(reservation => ({
-            ...reservation,
-            createdAt: DateUtils.parseDate(reservation.createdAt),
-            expiresAt: DateUtils.parseDate(reservation.expiresAt)
-        }));
-    }
-
-    if (AppState.raffleConfig && typeof NumbersManager !== 'undefined') {
-        NumbersManager.createInterface();
-        AdminManager.createInterface();
-        AdminManager.updateInterface();
-        NumbersManager.updateDisplay();
-        NumbersManager.startReservationChecker();
-    }
-};
+}
 
 // Verificar disponibilidad de localStorage al cargar
 if (!Storage.isAvailable()) {

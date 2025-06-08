@@ -28,6 +28,7 @@ data/
 debug-*.html
 debug-*.js
 cleanup.sh
+verify-system.sh
 
 # 🛠️ ARCHIVOS DE DESARROLLO
 *.orig

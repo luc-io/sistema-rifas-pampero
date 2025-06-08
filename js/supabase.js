@@ -38,8 +38,8 @@ window.SupabaseManager = {
         console.log('🔍 [SUPABASE] client existe =', !!this.client);
         
         if (!this.isConnected) {
-            console.warn('⚠️ Supabase no conectado, guardando localmente');
-            return Storage.save('raffleConfig', config);
+            console.warn('⚠️ Supabase no conectado, rechazando guardado');
+            throw new Error('Supabase no conectado');
         }
         
         try {
@@ -63,8 +63,8 @@ window.SupabaseManager = {
             console.log('✅ [SUPABASE] Configuración guardada en Supabase exitosamente');
             console.log('📊 [SUPABASE] Datos guardados:', data);
             
-            // También guardar localmente como backup
-            Storage.save('raffleConfig', config);
+            // NO guardar en localStorage - Supabase es la única fuente de verdad
+            return data;
             
         } catch (error) {
             console.error('❌ [SUPABASE] Error guardando configuración:', error);
@@ -75,8 +75,6 @@ window.SupabaseManager = {
                 hint: error.hint
             });
             
-            // Fallback a localStorage
-            Storage.save('raffleConfig', config);
             throw error;
         }
     },
@@ -86,9 +84,8 @@ window.SupabaseManager = {
      */
     saveSale: async function(sale) {
         if (!this.isConnected) {
-            console.warn('⚠️ Supabase no conectado, guardando localmente');
-            AppState.sales.push(sale);
-            return Storage.save('sales', AppState.sales);
+            console.warn('⚠️ Supabase no conectado, rechazando guardado');
+            throw new Error('Supabase no conectado');
         }
         
         try {
@@ -113,17 +110,15 @@ window.SupabaseManager = {
                 sale.created_at = data[0].created_at;
             }
             
-            console.log('✅ Venta guardada en Supabase');
+            console.log('✅ [SUPABASE] Venta guardada en Supabase');
             
-            // Actualizar estado local
+            // Actualizar estado local SOLO en memoria (no localStorage)
             AppState.sales.push(sale);
-            Storage.save('sales', AppState.sales);
+            
+            return data;
             
         } catch (error) {
-            console.error('❌ Error guardando venta:', error);
-            // Fallback a localStorage
-            AppState.sales.push(sale);
-            Storage.save('sales', AppState.sales);
+            console.error('❌ [SUPABASE] Error guardando venta:', error);
             throw error;
         }
     },
@@ -133,9 +128,8 @@ window.SupabaseManager = {
      */
     saveReservation: async function(reservation) {
         if (!this.isConnected) {
-            console.warn('⚠️ Supabase no conectado, guardando localmente');
-            AppState.reservations.push(reservation);
-            return Storage.save('reservations', AppState.reservations);
+            console.warn('⚠️ Supabase no conectado, rechazando guardado');
+            throw new Error('Supabase no conectado');
         }
         
         try {
@@ -160,17 +154,15 @@ window.SupabaseManager = {
                 reservation.created_at = data[0].created_at;
             }
             
-            console.log('✅ Reserva guardada en Supabase');
+            console.log('✅ [SUPABASE] Reserva guardada en Supabase');
             
-            // Actualizar estado local
+            // Actualizar estado local SOLO en memoria (no localStorage)
             AppState.reservations.push(reservation);
-            Storage.save('reservations', AppState.reservations);
+            
+            return data;
             
         } catch (error) {
-            console.error('❌ Error guardando reserva:', error);
-            // Fallback a localStorage
-            AppState.reservations.push(reservation);
-            Storage.save('reservations', AppState.reservations);
+            console.error('❌ [SUPABASE] Error guardando reserva:', error);
             throw error;
         }
     },
@@ -292,11 +284,13 @@ window.SupabaseManager = {
      */
     loadAllData: async function() {
         if (!this.isConnected) {
-            console.log('📱 Supabase no conectado, cargando desde localStorage');
-            return loadFromStorage();
+            console.log('📱 Supabase no conectado, usando datos locales');
+            throw new Error('Supabase no conectado');
         }
         
         try {
+            console.log('☁️ [SUPABASE] Cargando todos los datos desde Supabase...');
+            
             // Cargar configuración
             const { data: configData, error: configError } = await this.client
                 .from('raffles')
@@ -309,6 +303,7 @@ window.SupabaseManager = {
             } else if (configData) {
                 AppState.raffleConfig = configData.config;
                 AppState.raffleConfig.createdAt = DateUtils.parseDate(configData.config.createdAt);
+                console.log('✅ [SUPABASE] Configuración cargada');
             }
 
             // Cargar ventas
@@ -330,6 +325,7 @@ window.SupabaseManager = {
                     status: sale.status,
                     date: DateUtils.parseDate(sale.created_at)
                 }));
+                console.log(`✅ [SUPABASE] ${AppState.sales.length} ventas cargadas`);
             }
 
             // Cargar reservas
@@ -351,19 +347,16 @@ window.SupabaseManager = {
                     createdAt: DateUtils.parseDate(reservation.created_at),
                     expiresAt: DateUtils.parseDate(reservation.expires_at)
                 }));
+                console.log(`✅ [SUPABASE] ${AppState.reservations.length} reservas cargadas`);
             }
 
-            console.log('✅ Datos cargados desde Supabase');
+            console.log('✅ [SUPABASE] Todos los datos cargados desde Supabase');
             
-            // Guardar también en localStorage como backup
-            Storage.save('raffleConfig', AppState.raffleConfig);
-            Storage.save('sales', AppState.sales);
-            Storage.save('reservations', AppState.reservations);
+            // NO guardar en localStorage - mantener Supabase como única fuente de verdad
             
         } catch (error) {
-            console.error('❌ Error cargando datos de Supabase:', error);
-            // Fallback a localStorage
-            loadFromStorage();
+            console.error('❌ [SUPABASE] Error cargando datos de Supabase:', error);
+            throw error;
         }
     },
 

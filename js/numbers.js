@@ -405,17 +405,21 @@ window.NumbersManager = {
             expiresAt: expirationDate
         };
 
-        // Guardar en Supabase
         try {
+            // Guardar SOLO en Supabase
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
                 await window.SupabaseManager.saveReservation(reservation);
+                console.log('✅ [RESERVA] Guardada exitosamente en Supabase');
             } else {
+                // Si no hay Supabase, guardar en localStorage como único fallback
                 AppState.reservations.push(reservation);
-                autoSave();
+                await autoSave();
+                console.log('📱 [RESERVA] Guardada en localStorage (modo fallback)');
             }
         } catch (error) {
-            console.error('Error guardando reserva:', error);
-            Utils.showNotification('Error guardando reserva, pero se guardó localmente', 'warning');
+            console.error('❌ [RESERVA] Error guardando:', error);
+            Utils.showNotification('Error guardando la reserva. Inténtalo de nuevo.', 'error');
+            return;
         }
 
         // Marcar números como reservados
@@ -454,17 +458,21 @@ window.NumbersManager = {
             date: new Date()
         };
 
-        // Guardar en Supabase
         try {
+            // Guardar SOLO en Supabase
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
                 await window.SupabaseManager.saveSale(sale);
+                console.log('✅ [VENTA] Guardada exitosamente en Supabase');
             } else {
+                // Si no hay Supabase, guardar en localStorage como único fallback
                 AppState.sales.push(sale);
-                autoSave();
+                await autoSave();
+                console.log('📱 [VENTA] Guardada en localStorage (modo fallback)');
             }
         } catch (error) {
-            console.error('Error guardando venta:', error);
-            Utils.showNotification('Error guardando venta, pero se guardó localmente', 'warning');
+            console.error('❌ [VENTA] Error guardando:', error);
+            Utils.showNotification('Error guardando la venta. Inténtalo de nuevo.', 'error');
+            return;
         }
 
         // Marcar números como vendidos
@@ -684,17 +692,17 @@ window.NumbersManager = {
     /**
      * Verificar y limpiar reservas expiradas
      */
-    checkExpiredReservations: function() {
+    checkExpiredReservations: async function() {
         const now = Date.now();
         let hasExpiredReservations = false;
+        const expiredReservations = [];
         
         AppState.reservations.forEach(reservation => {
             if (reservation.status === 'active' && Utils.isReservationExpired(reservation)) {
-                // Marcar como expirada
-                reservation.status = 'expired';
+                expiredReservations.push(reservation);
                 hasExpiredReservations = true;
                 
-                // Liberar números
+                // Liberar números en la UI
                 reservation.numbers.forEach(number => {
                     const button = document.getElementById(`number-${number}`);
                     if (button && button.classList.contains('reserved')) {
@@ -705,9 +713,37 @@ window.NumbersManager = {
             }
         });
         
-        if (hasExpiredReservations && AdminManager.updateInterface) {
-            AdminManager.updateInterface();
-            autoSave();
+        if (hasExpiredReservations) {
+            console.log(`🗑️ [EXPIRED] Limpiando ${expiredReservations.length} reservas expiradas`);
+            
+            try {
+                // Actualizar en Supabase si está conectado
+                if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                    for (const reservation of expiredReservations) {
+                        await window.SupabaseManager.updateReservationStatus(reservation.id, 'expired');
+                        reservation.status = 'expired'; // Actualizar en memoria también
+                    }
+                    console.log('✅ [EXPIRED] Reservas expiradas actualizadas en Supabase');
+                } else {
+                    // Fallback a localStorage
+                    expiredReservations.forEach(reservation => {
+                        reservation.status = 'expired';
+                    });
+                    await autoSave();
+                    console.log('📱 [EXPIRED] Reservas expiradas actualizadas en localStorage');
+                }
+            } catch (error) {
+                console.error('❌ [EXPIRED] Error actualizando reservas expiradas:', error);
+                // Marcar como expiradas solo en memoria si falla la actualización
+                expiredReservations.forEach(reservation => {
+                    reservation.status = 'expired';
+                });
+            }
+            
+            // Actualizar interfaz
+            if (AdminManager.updateInterface) {
+                AdminManager.updateInterface();
+            }
         }
     }
 };
