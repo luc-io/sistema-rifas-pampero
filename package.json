@@ -1,7 +1,7 @@
 {
   "name": "pampero-rifas",
   "version": "2.0.0",
-  "description": "Sistema de Rifas para Club Náutico Pampero",
+  "description": "Sistema de Rifas para Club Náutico Pampero - Static Site",
   "scripts": {
     "build": "node inject-env.js",
     "dev": "python3 -m http.server 8000"
@@ -18,7 +18,8 @@
     "sorteos",
     "club-nautico",
     "supabase",
-    "javascript"
+    "javascript",
+    "static-site"
   ],
   "author": "Club Náutico Pampero",
   "license": "MIT"
