@@ -484,27 +484,44 @@ window.AdminManager = {
      * Marcar pago como confirmado
      */
     markAsPaid: async function(saleId) {
+        console.log(`🔍 [ADMIN] Intentando marcar como pagado - Sale ID: ${saleId}`);
+        console.log(`🔍 [ADMIN] Tipo de ID: ${typeof saleId}`);
+        console.log(`🔍 [ADMIN] Ventas actuales:`, AppState.sales.map(s => ({ id: s.id, type: typeof s.id, status: s.status })));
+        
+        // 🛡️ CORREGIDO: Buscar venta con comparación flexible (string vs number)
+        const sale = AppState.sales.find(s => s.id == saleId); // == para comparar string con number
+        if (!sale) {
+            console.error(`❌ [ADMIN] Venta ${saleId} no encontrada en memoria local`);
+            console.log(`🔍 [ADMIN] IDs disponibles:`, AppState.sales.map(s => s.id));
+            Utils.showNotification('Venta no encontrada', 'error');
+            return;
+        }
+        
+        console.log(`✅ [ADMIN] Venta encontrada:`, sale);
+        
         try {
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
                 const success = await window.SupabaseManager.markSaleAsPaid(saleId);
                 if (success) {
                     console.log('✅ [ADMIN] Pago marcado en Supabase');
+                    
+                    // IMPORTANTE: Actualizar estado local inmediatamente
+                    sale.status = 'paid';
+                    console.log('✅ [ADMIN] Estado local de venta actualizado a pagado');
+                    
                     this.updateInterface();
                     Utils.showNotification('Pago marcado como confirmado', 'success');
                 } else {
+                    console.error('❌ [ADMIN] Error actualizando el pago en Supabase');
                     Utils.showNotification('Error actualizando el pago en Supabase', 'error');
                 }
             } else {
                 // Fallback a localStorage solo si no hay Supabase
-                const sale = AppState.sales.find(s => s.id === saleId);
-                if (sale) {
-                    sale.status = 'paid';
-                    await autoSave();
-                    this.updateInterface();
-                    Utils.showNotification('Pago marcado como confirmado (localStorage)', 'success');
-                } else {
-                    Utils.showNotification('Venta no encontrada', 'error');
-                }
+                sale.status = 'paid';
+                await autoSave();
+                this.updateInterface();
+                Utils.showNotification('Pago marcado como confirmado (localStorage)', 'success');
+                console.log('📱 [ADMIN] Pago actualizado en localStorage');
             }
         } catch (error) {
             console.error('❌ [ADMIN] Error marcando pago:', error);
@@ -547,15 +564,23 @@ window.AdminManager = {
      * Eliminar venta
      */
     deleteSale: async function(saleId) {
+        console.log(`🔍 [ADMIN] Intentando eliminar venta ID: ${saleId}`);
+        console.log(`🔍 [ADMIN] Tipo de ID: ${typeof saleId}`);
+        console.log(`🔍 [ADMIN] Ventas actuales:`, AppState.sales.map(s => ({ id: s.id, type: typeof s.id, status: s.status })));
+        
         if (!confirm('¿Estás seguro de eliminar esta venta?')) return;
         
-        const saleIndex = AppState.sales.findIndex(s => s.id === saleId);
+        // 🛡️ CORREGIDO: Buscar venta con comparación flexible (string vs number)
+        const saleIndex = AppState.sales.findIndex(s => s.id == saleId); // == para comparar string con number
         if (saleIndex === -1) {
+            console.error(`❌ [ADMIN] Venta ${saleId} no encontrada`);
+            console.log(`🔍 [ADMIN] IDs disponibles:`, AppState.sales.map(s => s.id));
             Utils.showNotification('Venta no encontrada', 'error');
             return;
         }
         
         const sale = AppState.sales[saleIndex];
+        console.log(`✅ [ADMIN] Venta encontrada para eliminar:`, sale);
         
         try {
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
@@ -569,12 +594,18 @@ window.AdminManager = {
                         if (button) {
                             button.classList.remove('sold');
                             button.classList.add('available');
+                            console.log(`✅ [ADMIN] Número ${number} liberado en UI`);
                         }
                     });
+                    
+                    // IMPORTANTE: Actualizar estado local inmediatamente
+                    AppState.sales.splice(saleIndex, 1);
+                    console.log('✅ [ADMIN] Venta eliminada del estado local');
                     
                     this.updateInterface();
                     Utils.showNotification('Venta eliminada correctamente', 'success');
                 } else {
+                    console.error('❌ [ADMIN] Error eliminando la venta de Supabase');
                     Utils.showNotification('Error eliminando la venta de Supabase', 'error');
                 }
             } else {
@@ -592,6 +623,7 @@ window.AdminManager = {
                 await autoSave();
                 this.updateInterface();
                 Utils.showNotification('Venta eliminada correctamente (localStorage)', 'success');
+                console.log('📱 [ADMIN] Venta eliminada en localStorage');
             }
         } catch (error) {
             console.error('❌ [ADMIN] Error eliminando venta:', error);

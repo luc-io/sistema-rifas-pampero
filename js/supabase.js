@@ -246,14 +246,22 @@ window.SupabaseManager = {
      * Marcar venta como pagada
      */
     markSaleAsPaid: async function(saleId) {
+        console.log(`🔍 [SUPABASE] Intentando marcar venta como pagada - ID: ${saleId}`);
+        console.log(`🔍 [SUPABASE] Tipo de ID: ${typeof saleId}`);
+        
         if (!this.isConnected) {
-            // Actualizar solo localmente
-            const sale = AppState.sales.find(s => s.id === saleId);
+            console.log('📱 [SUPABASE] No conectado, actualizando solo localmente');
+            // 🛡️ CORREGIDO: Buscar venta con comparación flexible
+            const sale = AppState.sales.find(s => s.id == saleId); // == para comparar string con number
             if (sale) {
                 sale.status = 'paid';
                 Storage.save('sales', AppState.sales);
+                console.log('✅ [SUPABASE] Venta actualizada localmente');
+                return true;
+            } else {
+                console.error(`❌ [SUPABASE] Venta ${saleId} no encontrada localmente`);
+                return false;
             }
-            return true;
         }
         
         try {
@@ -267,18 +275,20 @@ window.SupabaseManager = {
                 
             if (error) throw error;
             
-            // Actualizar estado local
-            const sale = AppState.sales.find(s => s.id === saleId);
+            // ✅ CORREGIDO: Actualizar estado local correctamente
+            const sale = AppState.sales.find(s => s.id == saleId); // == para comparar string con number
             if (sale) {
                 sale.status = 'paid';
-                Storage.save('sales', AppState.sales);
+                console.log(`✅ [SUPABASE] Venta ${saleId} marcada como pagada en memoria local`);
+            } else {
+                console.warn(`⚠️ [SUPABASE] No se encontró venta ${saleId} en memoria local para actualizar`);
             }
             
-            console.log(`✅ Venta ${saleId} marcada como pagada`);
+            console.log(`✅ [SUPABASE] Venta ${saleId} marcada como pagada en Supabase`);
             return true;
             
         } catch (error) {
-            console.error('❌ Error actualizando venta:', error);
+            console.error('❌ [SUPABASE] Error actualizando venta:', error);
             return false;
         }
     },
@@ -287,14 +297,22 @@ window.SupabaseManager = {
      * Eliminar venta
      */
     deleteSale: async function(saleId) {
+        console.log(`🔍 [SUPABASE] Intentando eliminar venta - ID: ${saleId}`);
+        console.log(`🔍 [SUPABASE] Tipo de ID: ${typeof saleId}`);
+        
         if (!this.isConnected) {
-            // Eliminar solo localmente
-            const saleIndex = AppState.sales.findIndex(s => s.id === saleId);
+            console.log('📱 [SUPABASE] No conectado, eliminando solo localmente');
+            // 🛡️ CORREGIDO: Buscar venta con comparación flexible
+            const saleIndex = AppState.sales.findIndex(s => s.id == saleId); // == para comparar string con number
             if (saleIndex !== -1) {
                 AppState.sales.splice(saleIndex, 1);
                 Storage.save('sales', AppState.sales);
+                console.log('✅ [SUPABASE] Venta eliminada localmente');
+                return true;
+            } else {
+                console.error(`❌ [SUPABASE] Venta ${saleId} no encontrada localmente`);
+                return false;
             }
-            return true;
         }
         
         try {
@@ -305,18 +323,20 @@ window.SupabaseManager = {
                 
             if (error) throw error;
             
-            // Actualizar estado local
-            const saleIndex = AppState.sales.findIndex(s => s.id === saleId);
+            // ✅ CORREGIDO: Actualizar estado local correctamente
+            const saleIndex = AppState.sales.findIndex(s => s.id == saleId); // == para comparar string con number
             if (saleIndex !== -1) {
                 AppState.sales.splice(saleIndex, 1);
-                Storage.save('sales', AppState.sales);
+                console.log(`✅ [SUPABASE] Venta ${saleId} eliminada de memoria local`);
+            } else {
+                console.warn(`⚠️ [SUPABASE] No se encontró venta ${saleId} en memoria local para eliminar`);
             }
             
-            console.log(`✅ Venta ${saleId} eliminada`);
+            console.log(`✅ [SUPABASE] Venta ${saleId} eliminada de Supabase`);
             return true;
             
         } catch (error) {
-            console.error('❌ Error eliminando venta:', error);
+            console.error('❌ [SUPABASE] Error eliminando venta:', error);
             return false;
         }
     },
