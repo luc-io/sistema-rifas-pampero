@@ -4,7 +4,6 @@
   "description": "Sistema de Rifas para Club Náutico Pampero",
   "scripts": {
     "build": "node inject-env.js",
-    "start": "echo 'Aplicación estática lista para servir'",
     "dev": "python3 -m http.server 8000"
   },
   "engines": {
@@ -22,8 +21,5 @@
     "javascript"
   ],
   "author": "Club Náutico Pampero",
-  "license": "MIT",
-  "devDependencies": {
-    "http-server": "^14.1.1"
-  }
+  "license": "MIT"
 }

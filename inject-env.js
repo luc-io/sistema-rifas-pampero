@@ -14,6 +14,14 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.log('⚠️ [BUILD] Variables de entorno no encontradas, la aplicación usará configuración manual');
+    // Crear archivo vacío para evitar errores 404
+    const emptyConfig = `
+// No hay variables de entorno disponibles
+console.log('📱 [ENV] Variables de entorno no encontradas, usando configuración manual');
+`;
+    const outputPath = path.join(__dirname, 'js', 'env-config.js');
+    fs.writeFileSync(outputPath, emptyConfig);
+    console.log('✅ [BUILD] Archivo env-config.js creado (vacío)');
     process.exit(0);
 }
 
@@ -42,32 +50,17 @@ window.SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}';
 console.log('🌐 [ENV] Variables de entorno cargadas desde Digital Ocean');
 `;
 
+// Asegurar que el directorio js existe
+const jsDir = path.join(__dirname, 'js');
+if (!fs.existsSync(jsDir)) {
+    fs.mkdirSync(jsDir, { recursive: true });
+    console.log('📱 [BUILD] Directorio js/ creado');
+}
+
 // Escribir el archivo
-const outputPath = path.join(__dirname, 'js', 'env-config.js');
+const outputPath = path.join(jsDir, 'env-config.js');
 fs.writeFileSync(outputPath, envConfig);
 
 console.log(`✅ [BUILD] Variables inyectadas en: ${outputPath}`);
-
-// Verificar que el archivo index.html cargue el script
-const indexPath = path.join(__dirname, 'index.html');
-let indexContent = fs.readFileSync(indexPath, 'utf8');
-
-if (!indexContent.includes('env-config.js')) {
-    console.log('🔧 [BUILD] Agregando script de entorno a index.html...');
-    
-    const scriptTag = '    <script src="js/env-config.js"></script>\n';
-    const configScriptPosition = indexContent.indexOf('<script src="js/config.js">');
-    
-    if (configScriptPosition !== -1) {
-        indexContent = indexContent.substring(0, configScriptPosition) + 
-                      scriptTag + 
-                      indexContent.substring(configScriptPosition);
-        
-        fs.writeFileSync(indexPath, indexContent);
-        console.log('✅ [BUILD] index.html actualizado');
-    } else {
-        console.warn('⚠️ [BUILD] No se pudo encontrar config.js en index.html');
-    }
-}
 
 console.log('🚀 [BUILD] Configuración de entorno completada');
