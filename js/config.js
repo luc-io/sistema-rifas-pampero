@@ -41,8 +41,8 @@ window.AppConfig = {
     loadFromEnvironment: function() {
         // Método 1: Variables de entorno inyectadas (Digital Ocean App Platform)
         // Estas variables se configuran en el panel de Digital Ocean
-        const envUrl = window.SUPABASE_URL || process?.env?.SUPABASE_URL;
-        const envKey = window.SUPABASE_ANON_KEY || process?.env?.SUPABASE_ANON_KEY;
+        const envUrl = window.SUPABASE_URL;
+        const envKey = window.SUPABASE_ANON_KEY;
         
         if (envUrl && envKey) {
             console.log('🌐 [CONFIG] Usando variables de entorno de Digital Ocean');
