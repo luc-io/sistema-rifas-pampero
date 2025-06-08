@@ -1,37 +1,29 @@
 {
-  "name": "sistema-rifas-pampero",
+  "name": "pampero-rifas",
   "version": "2.0.0",
-  "description": "Sistema completo de administración de rifas para Club Náutico Pampero",
-  "main": "index.html",
+  "description": "Sistema de Rifas para Club Náutico Pampero",
   "scripts": {
-    "start": "serve -s .",
-    "build": "echo 'Static app - no build required'",
-    "dev": "serve -s . -p 3000"
+    "build": "node inject-env.js",
+    "start": "echo 'Aplicación estática lista para servir'",
+    "dev": "python3 -m http.server 8000"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TU-USUARIO/sistema-rifas-pampero.git"
+    "url": "https://github.com/tu-usuario/pampero-rifas"
   },
   "keywords": [
     "rifas",
     "sorteos",
     "club-nautico",
-    "pampero",
-    "sistema-ventas",
-    "javascript",
-    "firebase",
-    "supabase"
+    "supabase",
+    "javascript"
   ],
   "author": "Club Náutico Pampero",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/TU-USUARIO/sistema-rifas-pampero/issues"
-  },
-  "homepage": "https://github.com/TU-USUARIO/sistema-rifas-pampero#readme",
   "devDependencies": {
-    "serve": "^14.0.1"
-  },
-  "engines": {
-    "node": ">=16.0.0"
+    "http-server": "^14.1.1"
   }
 }

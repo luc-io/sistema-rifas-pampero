@@ -36,11 +36,24 @@ window.AppConfig = {
     },
 
     /**
-     * 📂 Cargar desde variables de entorno
+     * 📂 Cargar desde variables de entorno (Digital Ocean App Platform)
      */
     loadFromEnvironment: function() {
-        // En un entorno de producción real, estas vendrían de variables de entorno
-        // Por ahora, verificamos si hay un archivo de configuración local
+        // Método 1: Variables de entorno inyectadas (Digital Ocean App Platform)
+        // Estas variables se configuran en el panel de Digital Ocean
+        const envUrl = window.SUPABASE_URL || process?.env?.SUPABASE_URL;
+        const envKey = window.SUPABASE_ANON_KEY || process?.env?.SUPABASE_ANON_KEY;
+        
+        if (envUrl && envKey) {
+            console.log('🌐 [CONFIG] Usando variables de entorno de Digital Ocean');
+            this.supabase.url = envUrl;
+            this.supabase.anonKey = envKey;
+            this.supabase.isConfigured = true;
+            console.log('✅ [CONFIG] Configuración cargada desde variables de entorno');
+            return;
+        }
+        
+        // Método 2: Configuración almacenada localmente (fallback)
         const storedConfig = localStorage.getItem('supabase_config_secure');
         
         if (storedConfig) {
@@ -49,9 +62,9 @@ window.AppConfig = {
                 this.supabase.url = config.url;
                 this.supabase.anonKey = config.anonKey;
                 this.supabase.isConfigured = true;
-                console.log('✅ Configuración cargada desde almacenamiento seguro');
+                console.log('✅ [CONFIG] Configuración cargada desde almacenamiento seguro');
             } catch (error) {
-                console.warn('⚠️ Error cargando configuración almacenada');
+                console.warn('⚠️ [CONFIG] Error cargando configuración almacenada');
             }
         }
     },

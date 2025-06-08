@@ -338,6 +338,11 @@ window.SupabaseManager = {
         
         return buyer;
     },
+
+    /**
+     * Cargar todos los datos desde Supabase
+     */
+    loadAllData: async function() {
         if (!this.isConnected) {
             console.log('📱 Supabase no conectado, usando datos locales');
             throw new Error('Supabase no conectado');
