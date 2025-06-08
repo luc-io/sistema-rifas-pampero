@@ -55,16 +55,80 @@ window.AdminManager = {
     },
 
     /**
+     * Calcular compradores únicos
+     */
+    getUniqueBuyers: function() {
+        const buyerMap = new Map();
+        
+        // Agrupar ventas por comprador único (nombre completo + teléfono como clave)
+        AppState.sales.forEach(sale => {
+            const buyerKey = `${sale.buyer.name.toLowerCase().trim()} ${sale.buyer.lastName.toLowerCase().trim()} ${sale.buyer.phone.replace(/[^\d]/g, '')}`;
+            
+            if (!buyerMap.has(buyerKey)) {
+                buyerMap.set(buyerKey, {
+                    buyer: sale.buyer,
+                    purchases: [],
+                    totalNumbers: 0,
+                    totalSpent: 0,
+                    firstPurchase: sale.date,
+                    lastPurchase: sale.date
+                });
+            }
+            
+            const buyerData = buyerMap.get(buyerKey);
+            buyerData.purchases.push(sale);
+            buyerData.totalNumbers += sale.numbers.length;
+            buyerData.totalSpent += sale.total;
+            
+            // Actualizar fechas
+            if (sale.date < buyerData.firstPurchase) {
+                buyerData.firstPurchase = sale.date;
+            }
+            if (sale.date > buyerData.lastPurchase) {
+                buyerData.lastPurchase = sale.date;
+            }
+        });
+        
+        return Array.from(buyerMap.values());
+    },
+
+    /**
+     * Obtener estadísticas de compradores
+     */
+    getBuyerStats: function() {
+        const uniqueBuyers = this.getUniqueBuyers();
+        
+        return {
+            totalUniqueBuyers: uniqueBuyers.length,
+            repeatBuyers: uniqueBuyers.filter(buyer => buyer.purchases.length > 1).length,
+            averageSpentPerBuyer: uniqueBuyers.length > 0 ? 
+                uniqueBuyers.reduce((sum, buyer) => sum + buyer.totalSpent, 0) / uniqueBuyers.length : 0,
+            topBuyer: uniqueBuyers.length > 0 ? 
+                uniqueBuyers.reduce((top, buyer) => buyer.totalSpent > top.totalSpent ? buyer : top, uniqueBuyers[0]) : null
+        };
+    },
+    /**
      * Actualizar interfaz de administración
      */
     updateInterface: function() {
         if (!AppState.raffleConfig) return;
 
+        // 🛡️ VALIDACIÓN: Verificar integridad de datos
+        const integrity = this.validateDataIntegrity();
+        if (!integrity.isValid) {
+            console.error('🚨 [ADMIN] Datos corruptos detectados - números duplicados:', integrity.duplicates);
+            Utils.showNotification(`⚠️ ADVERTENCIA: Números duplicados detectados: ${integrity.duplicates.map(n => Utils.formatNumber(n)).join(', ')}`, 'warning');
+        }
+
         const soldCount = AppState.sales.reduce((sum, sale) => sum + sale.numbers.length, 0);
         const totalRevenue = AppState.sales.filter(sale => sale.status === 'paid').reduce((sum, sale) => sum + sale.total, 0);
         const reservedCount = AppState.reservations.filter(r => r.status === 'active').reduce((sum, r) => sum + r.numbers.length, 0);
         const availableCount = AppState.raffleConfig.totalNumbers - soldCount - reservedCount;
-        const buyersCount = AppState.sales.length;
+        
+        // ✅ CORREGIDO: Usar compradores únicos en lugar de cantidad de ventas
+        const buyerStats = this.getBuyerStats();
+        const uniqueBuyersCount = buyerStats.totalUniqueBuyers;
+        
         const activeReservationsCount = AppState.reservations.filter(r => r.status === 'active').length;
 
         // Actualizar estadísticas solo si existen los elementos
@@ -77,7 +141,7 @@ window.AdminManager = {
         if (soldElement) soldElement.textContent = soldCount;
         if (revenueElement) revenueElement.textContent = Utils.formatPrice(totalRevenue);
         if (availableElement) availableElement.textContent = availableCount;
-        if (buyersElement) buyersElement.textContent = buyersCount;
+        if (buyersElement) buyersElement.textContent = uniqueBuyersCount; // ✅ CORREGIDO
         if (reservationsElement) reservationsElement.textContent = activeReservationsCount;
 
         this.updateSalesList();
@@ -103,15 +167,22 @@ window.AdminManager = {
             const timeLeft = Utils.getTimeLeft(reservation.expiresAt);
             const isExpiringSoon = timeLeft.hours < 2;
             
+            // 🛡️ Verificar si números ya están vendidos
+            const validation = this.validateNumbersNotSold(reservation.numbers);
+            const hasConflict = !validation.isValid;
+            
             return `
-            <div class="sale-item" style="border-left: 4px solid ${isExpiringSoon ? '#dc3545' : '#ffc107'};">
+            <div class="sale-item" style="border-left: 4px solid ${hasConflict ? '#dc3545' : isExpiringSoon ? '#dc3545' : '#ffc107'};">
                 <div class="sale-header">
                     <strong>${reservation.buyer.name} ${reservation.buyer.lastName}</strong>
-                    <span class="payment-status pending">⏰ Reservado</span>
+                    <span class="payment-status ${hasConflict ? 'error' : 'pending'}">
+                        ${hasConflict ? '🚫 Conflicto' : '⏰ Reservado'}
+                    </span>
                 </div>
+                ${hasConflict ? `<div style="color: #dc3545; font-weight: bold; margin: 5px 0;">⚠️ Números ya vendidos: ${validation.duplicates.map(n => Utils.formatNumber(n)).join(', ')}</div>` : ''}
                 <div>📞 ${reservation.buyer.phone}</div>
                 <div class="sale-numbers">
-                    ${numbersFormatted.map(num => `<span class="sale-number">${num}</span>`).join('')}
+                    ${numbersFormatted.map(num => `<span class="sale-number ${validation.duplicates.includes(parseInt(num.replace(/\D/g, ''))) ? 'conflict' : ''}">${num}</span>`).join('')}
                 </div>
                 <div style="margin: 8px 0; font-weight: 600; color: ${isExpiringSoon ? '#dc3545' : '#856404'};">
                     ⏰ Vence en: ${timeLeft.hours}h ${timeLeft.minutes}m
@@ -120,13 +191,35 @@ window.AdminManager = {
                     <span>💰 Total: ${Utils.formatPrice(reservation.total)}</span>
                 </div>
                 <div class="admin-actions">
-                    <button class="btn btn-small" onclick="AdminManager.confirmReservation('${reservation.id}', 'efectivo')">✅ Confirmar Efectivo</button>
-                    <button class="btn btn-small" onclick="AdminManager.confirmReservation('${reservation.id}', 'transferencia')">🏦 Confirmar Transferencia</button>
+                    <button class="btn btn-small" onclick="AdminManager.confirmReservation('${reservation.id}', 'efectivo')" 
+                            ${this.validateNumbersNotSold(reservation.numbers).isValid ? '' : 'disabled title="Números ya vendidos"'}>
+                        ✅ Confirmar Efectivo
+                    </button>
+                    <button class="btn btn-small" onclick="AdminManager.confirmReservation('${reservation.id}', 'transferencia')"
+                            ${this.validateNumbersNotSold(reservation.numbers).isValid ? '' : 'disabled title="Números ya vendidos"'}>
+                        🏦 Confirmar Transferencia
+                    </button>
                     <button class="btn btn-secondary btn-small" onclick="AdminManager.cancelReservation('${reservation.id}')">❌ Cancelar</button>
                 </div>
             </div>
         `;
         }).join('');
+    },
+
+    /**
+     * Validar que números no estén ya vendidos
+     */
+    validateNumbersNotSold: function(numbers) {
+        const soldNumbers = AppState.sales.reduce((sold, sale) => {
+            sale.numbers.forEach(num => sold.add(num));
+            return sold;
+        }, new Set());
+
+        const duplicates = numbers.filter(num => soldNumbers.has(num));
+        return {
+            isValid: duplicates.length === 0,
+            duplicates: duplicates
+        };
     },
 
     /**
@@ -142,6 +235,15 @@ window.AdminManager = {
         if (Utils.isReservationExpired(reservation)) {
             Utils.showNotification('Esta reserva ya está vencida', 'error');
             NumbersManager.checkExpiredReservations();
+            return;
+        }
+
+        // 🛡️ VALIDACIÓN: Verificar que números no estén ya vendidos
+        const validation = this.validateNumbersNotSold(reservation.numbers);
+        if (!validation.isValid) {
+            const duplicateNumbers = validation.duplicates.map(n => Utils.formatNumber(n)).join(', ');
+            Utils.showNotification(`❌ Error: Los números ${duplicateNumbers} ya están vendidos. No se puede procesar la venta.`, 'error');
+            console.error('🚫 [ADMIN] Intento de venta duplicada:', validation.duplicates);
             return;
         }
 
@@ -267,13 +369,28 @@ window.AdminManager = {
             return;
         }
 
+        // Obtener datos de compradores únicos para identificar recurrentes
+        const uniqueBuyers = this.getUniqueBuyers();
+        const buyerPurchaseCount = new Map();
+        
+        uniqueBuyers.forEach(buyerData => {
+            const buyerKey = `${buyerData.buyer.name.toLowerCase().trim()} ${buyerData.buyer.lastName.toLowerCase().trim()}`;
+            buyerPurchaseCount.set(buyerKey, buyerData.purchases.length);
+        });
+
         container.innerHTML = AppState.sales.map(sale => {
             const numbersFormatted = sale.numbers.map(n => Utils.formatNumber(n));
             
+            // Verificar si es comprador recurrente
+            const buyerKey = `${sale.buyer.name.toLowerCase().trim()} ${sale.buyer.lastName.toLowerCase().trim()}`;
+            const purchaseCount = buyerPurchaseCount.get(buyerKey) || 1;
+            const isRepeatBuyer = purchaseCount > 1;
+            
             return `
-            <div class="sale-item">
+            <div class="sale-item${isRepeatBuyer ? ' repeat-buyer' : ''}">
                 <div class="sale-header">
                     <strong>${sale.buyer.name} ${sale.buyer.lastName}</strong>
+                    ${isRepeatBuyer ? `<span class="repeat-badge">🎆 ${purchaseCount}x compras</span>` : ''}
                     <span class="payment-status ${sale.status}">
                         ${sale.status === 'paid' ? '✅ Pagado' : '⏳ Pendiente'}
                     </span>
@@ -370,6 +487,37 @@ window.AdminManager = {
             console.error('❌ [ADMIN] Error marcando pago:', error);
             Utils.showNotification('Error actualizando el pago', 'error');
         }
+    },
+
+    /**
+     * Validar integridad de datos antes de operaciones
+     */
+    validateDataIntegrity: function() {
+        const allSoldNumbers = [];
+        const duplicateNumbers = [];
+        
+        // Recopilar todos los números vendidos
+        AppState.sales.forEach(sale => {
+            sale.numbers.forEach(number => {
+                if (allSoldNumbers.includes(number)) {
+                    if (!duplicateNumbers.includes(number)) {
+                        duplicateNumbers.push(number);
+                    }
+                } else {
+                    allSoldNumbers.push(number);
+                }
+            });
+        });
+        
+        if (duplicateNumbers.length > 0) {
+            console.warn('⚠️ [ADMIN] Números duplicados detectados:', duplicateNumbers.map(n => Utils.formatNumber(n)));
+            return {
+                isValid: false,
+                duplicates: duplicateNumbers
+            };
+        }
+        
+        return { isValid: true, duplicates: [] };
     },
 
     /**
