@@ -485,6 +485,8 @@ window.NumbersManager = {
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
                 await window.SupabaseManager.saveReservation(reservation);
                 console.log('✅ [RESERVA] Guardada exitosamente en Supabase');
+                // ✅ CORREGIDO: NO agregar acá - supabase.js ya lo hace
+                // AppState.reservations.push(reservation); // ❌ Evitar duplicación
             } else {
                 // Si no hay Supabase, guardar en localStorage como único fallback
                 AppState.reservations.push(reservation);
@@ -543,6 +545,8 @@ window.NumbersManager = {
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
                 await window.SupabaseManager.saveSale(sale);
                 console.log('✅ [VENTA] Guardada exitosamente en Supabase');
+                // ✅ CORREGIDO: NO agregar acá - supabase.js ya lo hace
+                // AppState.sales.push(sale); // ❌ Evitar duplicación
             } else {
                 // Si no hay Supabase, guardar en localStorage como único fallback
                 AppState.sales.push(sale);

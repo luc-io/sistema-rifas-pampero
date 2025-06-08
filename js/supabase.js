@@ -255,7 +255,8 @@ window.SupabaseManager = {
             const sale = AppState.sales.find(s => s.id == saleId); // == para comparar string con number
             if (sale) {
                 sale.status = 'paid';
-                Storage.save('sales', AppState.sales);
+                // ✅ CORREGIDO: No usar Storage.save si Supabase es la fuente de verdad
+                // Storage.save('sales', AppState.sales); // ❌ Removido
                 console.log('✅ [SUPABASE] Venta actualizada localmente');
                 return true;
             } else {
@@ -306,7 +307,8 @@ window.SupabaseManager = {
             const saleIndex = AppState.sales.findIndex(s => s.id == saleId); // == para comparar string con number
             if (saleIndex !== -1) {
                 AppState.sales.splice(saleIndex, 1);
-                Storage.save('sales', AppState.sales);
+                // ✅ CORREGIDO: No usar Storage.save si Supabase es la fuente de verdad
+                // Storage.save('sales', AppState.sales); // ❌ Removido
                 console.log('✅ [SUPABASE] Venta eliminada localmente');
                 return true;
             } else {

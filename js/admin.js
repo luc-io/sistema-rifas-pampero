@@ -271,9 +271,9 @@ window.AdminManager = {
                 await window.SupabaseManager.saveSale(sale);
                 console.log('✅ [ADMIN] Venta de reserva guardada en Supabase');
                 
-                // IMPORTANTE: Actualizar estado local inmediatamente (la venta)
-                AppState.sales.push(sale);
-                console.log('✅ [ADMIN] Venta agregada al estado local');
+                // ✅ CORREGIDO: NO agregar acá - supabase.js ya lo hace
+                // AppState.sales.push(sale); // ❌ ELIMINADO - causa duplicación
+                console.log('✅ [ADMIN] Venta agregada al estado local (por SupabaseManager)');
                 
                 // Marcar reserva como confirmada en Supabase
                 await window.SupabaseManager.updateReservationStatus(reservationId, 'confirmed');
