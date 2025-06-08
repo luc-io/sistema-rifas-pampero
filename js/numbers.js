@@ -58,6 +58,46 @@ window.NumbersManager = {
     },
 
     /**
+     * Generar mensaje de WhatsApp simplificado (más confiable)
+     */
+    generateSimpleWhatsAppMessage: function(sale, numbersFormatted) {
+        const statusText = sale.status === 'pending' ? 
+            'COMPRA REGISTRADA - PAGO PENDIENTE' : 
+            'COMPRA CONFIRMADA';
+        
+        let message = `*${statusText}*\n\n`;
+        message += `*${AppState.raffleConfig.name}*\n`;
+        message += `*Premio:* ${AppState.raffleConfig.prize}\n\n`;
+        message += `*Comprador:* ${sale.buyer.name} ${sale.buyer.lastName}\n`;
+        message += `*Telefono:* ${sale.buyer.phone}\n`;
+        message += `*Numeros:* ${numbersFormatted}\n`;
+        message += `*Total:* ${Utils.formatPrice(sale.total)}\n`;
+        message += `*Pago:* ${AppConstants.PAYMENT_METHODS[sale.paymentMethod]}\n`;
+        
+        if (sale.buyer.membershipArea && sale.buyer.membershipArea !== '') {
+            message += `*Relacion con el club:* ${AppConstants.MEMBERSHIP_LABELS[sale.buyer.membershipArea]}\n`;
+        }
+        
+        message += `*Fecha:* ${Utils.formatDateTime(sale.date)}\n\n`;
+        
+        if (sale.status === 'pending') {
+            message += `*Datos para transferir:*\n`;
+            message += `Alias: PAMPERO.RIFA\n`;
+            message += `CBU: 0000003100010000000001\n`;
+            message += `Titular: ${AppState.raffleConfig.organization}\n\n`;
+            message += `Envia el comprobante al ${AppState.raffleConfig.whatsappNumber}\n\n`;
+        }
+        
+        if (AppState.raffleConfig.clubInstagram) {
+            message += `Siguenos en Instagram: ${AppState.raffleConfig.clubInstagram}\n\n`;
+        }
+        
+        message += `Gracias por participar!`;
+        
+        return message;
+    },
+
+    /**
      * Alternar selección de número
      */
     toggleNumber: function(number) {
@@ -522,7 +562,7 @@ window.NumbersManager = {
         });
 
         const numbersFormatted = AppState.selectedNumbers.map(n => Utils.formatNumber(n)).join(', ');
-        const whatsappMessage = this.generateWhatsAppMessage(sale, numbersFormatted);
+        const whatsappMessage = this.generateSimpleWhatsAppMessage(sale, numbersFormatted);
         
         AppState.selectedNumbers = [];
         this.updateSelectionSummary();
@@ -539,8 +579,31 @@ window.NumbersManager = {
     },
 
     /**
-     * Generar mensaje de reserva para WhatsApp
+     * Formatear número de teléfono para WhatsApp (Argentina)
      */
+    formatPhoneForWhatsApp: function(phone) {
+        // Limpiar el número
+        let cleanPhone = phone.replace(/[^\d]/g, '');
+        
+        // Si empieza con 0341 (Rosario), convertir a formato internacional
+        if (cleanPhone.startsWith('0341')) {
+            cleanPhone = '54341' + cleanPhone.substring(4);
+        }
+        // Si empieza con 341, agregar código de país
+        else if (cleanPhone.startsWith('341')) {
+            cleanPhone = '54' + cleanPhone;
+        }
+        // Si empieza con 054, remover el 0 inicial
+        else if (cleanPhone.startsWith('054')) {
+            cleanPhone = cleanPhone.substring(1);
+        }
+        // Si no tiene código de país, asumir Argentina
+        else if (!cleanPhone.startsWith('54')) {
+            cleanPhone = '54' + cleanPhone;
+        }
+        
+        return cleanPhone;
+    },
     generateReservationMessage: function(reservation, numbersFormatted) {
         const expirationDate = reservation.expiresAt;
         
@@ -577,8 +640,8 @@ window.NumbersManager = {
      */
     generateWhatsAppMessage: function(sale, numbersFormatted) {
         const statusText = sale.status === 'pending' ? 
-            '⏳ *COMPRA REGISTRADA - PAGO PENDIENTE*' : 
-            '✅ *COMPRA CONFIRMADA*';
+            '*COMPRA REGISTRADA - PAGO PENDIENTE*' : 
+            '*COMPRA CONFIRMADA*';
         
         let message = `${statusText}\n\n`;
         message += `🎟️ *${AppState.raffleConfig.name}*\n`;
@@ -612,7 +675,7 @@ window.NumbersManager = {
             message += `📱 *Síguenos en Instagram para novedades sobre navegación:* ${AppState.raffleConfig.clubInstagram}\n\n`;
         }
         
-        message += `¡Gracias por participar! 🍀⛵`;
+        message += `¡Gracias por participar!`;
         
         return message;
     },
@@ -635,7 +698,7 @@ window.NumbersManager = {
                     
                     <div style="margin: 20px 0;">
                         <p><strong>Enviar reserva al cliente:</strong></p>
-                        <a href="https://wa.me/${reservation.buyer.phone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(whatsappMessage)}" 
+                        <a href="https://wa.me/${this.formatPhoneForWhatsApp(reservation.buyer.phone)}?text=${encodeURIComponent(whatsappMessage)}" 
                            class="whatsapp-btn" target="_blank">
                            📱 Notificar a ${reservation.buyer.name}
                         </a>
@@ -674,7 +737,7 @@ window.NumbersManager = {
                     
                     <div style="margin: 20px 0;">
                         <p><strong>Enviar confirmación al cliente:</strong></p>
-                        <a href="https://wa.me/${sale.buyer.phone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(whatsappMessage)}" 
+                        <a href="https://wa.me/${this.formatPhoneForWhatsApp(sale.buyer.phone)}?text=${encodeURIComponent(whatsappMessage)}" 
                            class="whatsapp-btn" target="_blank">
                            📱 Confirmar a ${sale.buyer.name}
                         </a>
