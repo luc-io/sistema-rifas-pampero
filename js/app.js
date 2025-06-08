@@ -142,6 +142,7 @@ window.RaffleApp = {
         const price = parseFloat(document.getElementById('pricePerNumber').value);
         const organization = document.getElementById('organizationName').value;
         const whatsappNumber = document.getElementById('whatsappNumber').value;
+        const clubInstagram = document.getElementById('clubInstagram').value;
         const reservationTime = parseInt(document.getElementById('reservationTime').value);
 
         if (!name || !prize || !totalNumbers || !price || !whatsappNumber || !reservationTime) {
@@ -162,6 +163,7 @@ window.RaffleApp = {
             price,
             organization,
             whatsappNumber,
+            clubInstagram: clubInstagram || null,
             reservationTime,
             createdAt: new Date()
         };

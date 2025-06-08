@@ -175,7 +175,7 @@ window.NumbersManager = {
         document.getElementById('purchaseModal').style.display = 'none';
         
         // Limpiar formulario
-        const fields = ['buyerName', 'buyerLastName', 'buyerPhone', 'buyerEmail', 'paymentMethod', 'navigationInterest', 'isMember', 'memberActivities'];
+        const fields = ['buyerName', 'buyerLastName', 'buyerPhone', 'buyerEmail', 'buyerInstagram', 'paymentMethod', 'isMember', 'memberActivities'];
         fields.forEach(field => {
             const element = document.getElementById(field);
             if (element) element.value = '';
@@ -299,7 +299,7 @@ window.NumbersManager = {
             document.getElementById('buyerLastName').value = latestBuyer.lastName;
             document.getElementById('buyerPhone').value = latestBuyer.phone;
             document.getElementById('buyerEmail').value = latestBuyer.email || '';
-            document.getElementById('navigationInterest').value = latestBuyer.navigationInterest || '';
+            document.getElementById('buyerInstagram').value = latestBuyer.instagram || '';
             document.getElementById('isMember').value = latestBuyer.isMember || '';
             document.getElementById('memberActivities').value = latestBuyer.memberActivities || '';
             
@@ -364,7 +364,7 @@ window.NumbersManager = {
             lastName: Utils.sanitizeInput(document.getElementById('buyerLastName').value),
             phone: Utils.sanitizeInput(document.getElementById('buyerPhone').value),
             email: Utils.sanitizeInput(document.getElementById('buyerEmail').value),
-            navigationInterest: document.getElementById('navigationInterest').value,
+            instagram: Utils.sanitizeInput(document.getElementById('buyerInstagram').value),
             isMember: document.getElementById('isMember').value,
             memberActivities: document.getElementById('memberActivities').value
         };
@@ -510,8 +510,8 @@ window.NumbersManager = {
         message += `🔢 *Números reservados:* ${numbersFormatted}\n`;
         message += `💰 *Total a pagar:* ${Utils.formatPrice(reservation.total)}\n`;
         
-        if (reservation.buyer.navigationInterest && reservation.buyer.navigationInterest !== '') {
-            message += `⛵ *Interés en navegación:* ${AppConstants.INTEREST_LABELS[reservation.buyer.navigationInterest]}\n`;
+        if (reservation.buyer.instagram && reservation.buyer.instagram !== '') {
+            message += `📷 *Instagram:* ${reservation.buyer.instagram}\n`;
         }
         
         message += `⏰ *Vence:* ${Utils.formatDateTime(expirationDate)}\n\n`;
@@ -519,6 +519,12 @@ window.NumbersManager = {
         message += `• "EFECTIVO" si pagas en efectivo\n`;
         message += `• "TRANSFERENCIA" si pagas por transferencia\n\n`;
         message += `⚠️ *Importante:* Si no confirmas antes del vencimiento, los números quedarán disponibles nuevamente.\n\n`;
+        
+        // Agregar Instagram del club si está configurado
+        if (AppState.raffleConfig.clubInstagram) {
+            message += `📱 *Síguenos en Instagram para novedades sobre navegación:* ${AppState.raffleConfig.clubInstagram}\n\n`;
+        }
+        
         message += `¡Gracias por tu reserva! 🍀⛵`;
         
         return message;
@@ -541,8 +547,8 @@ window.NumbersManager = {
         message += `💰 *Total:* ${Utils.formatPrice(sale.total)}\n`;
         message += `💳 *Pago:* ${AppConstants.PAYMENT_METHODS[sale.paymentMethod]}\n`;
         
-        if (sale.buyer.navigationInterest && sale.buyer.navigationInterest !== '') {
-            message += `⛵ *Interés en navegación:* ${AppConstants.INTEREST_LABELS[sale.buyer.navigationInterest]}\n`;
+        if (sale.buyer.instagram && sale.buyer.instagram !== '') {
+            message += `📷 *Instagram:* ${sale.buyer.instagram}\n`;
         }
         
         if (sale.buyer.isMember && sale.buyer.isMember !== '') {
@@ -561,6 +567,11 @@ window.NumbersManager = {
             message += `• CBU: 0000003100010000000001\n`;
             message += `• Titular: ${AppState.raffleConfig.organization}\n\n`;
             message += `📲 *Envía el comprobante de transferencia al ${AppState.raffleConfig.whatsappNumber} para confirmar tu compra.*\n\n`;
+        }
+        
+        // Agregar Instagram del club si está configurado
+        if (AppState.raffleConfig.clubInstagram) {
+            message += `📱 *Síguenos en Instagram para novedades sobre navegación:* ${AppState.raffleConfig.clubInstagram}\n\n`;
         }
         
         message += `¡Gracias por participar! 🍀⛵`;

@@ -79,6 +79,12 @@
                     <small style="color: #6c757d;">Número donde recibirás comprobantes y confirmaciones</small>
                 </div>
 
+                <div class="form-group">
+                    <label for="clubInstagram">Instagram del Club (opcional)</label>
+                    <input type="text" id="clubInstagram" placeholder="@clubpampero" >
+                    <small style="color: #6c757d;">Se mostrará para que los compradores puedan seguir novedades sobre navegación</small>
+                </div>
+
                 <button class="btn" onclick="RaffleApp.setupRaffle()">Crear Rifa</button>
             </div>
         </div>
@@ -182,15 +188,12 @@
             </div>
 
             <div class="form-group">
-                <label for="navigationInterest">¿Te interesa aprender a navegar o salir a navegar recreativamente?</label>
-                <select id="navigationInterest">
-                    <option value="">Seleccionar...</option>
-                    <option value="aprender">Sí, me interesa aprender a navegar</option>
-                    <option value="recreativo">Sí, me interesa salir a navegar recreativamente</option>
-                    <option value="ambos">Me interesan ambas opciones</option>
-                    <option value="no">No me interesa</option>
-                </select>
+                <label for="buyerInstagram">Instagram (opcional)</label>
+                <input type="text" id="buyerInstagram" placeholder="@usuario">
+                <small style="color: #6c757d;">Para enviarte novedades sobre navegación del club</small>
             </div>
+
+
 
             <div class="form-group">
                 <label for="isMember">¿Eres socio del club?</label>

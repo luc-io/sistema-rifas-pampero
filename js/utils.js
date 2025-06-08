@@ -504,6 +504,7 @@ function updateInterfaceAfterLoad() {
             'pricePerNumber': 'price',
             'organizationName': 'organization',
             'whatsappNumber': 'whatsappNumber',
+            'clubInstagram': 'clubInstagram',
             'reservationTime': 'reservationTime'
         };
 
