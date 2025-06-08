@@ -237,18 +237,8 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <!-- Scripts principales -->
-    <!-- Variables de entorno (Digital Ocean) -->
-    <script>
-        // Cargar variables de entorno si están disponibles
-        (function() {
-            const envScript = document.createElement('script');
-            envScript.src = 'js/env-config.js';
-            envScript.onerror = function() {
-                console.log('📱 [ENV] Variables de entorno no encontradas, usando configuración manual');
-            };
-            document.head.appendChild(envScript);
-        })();
-    </script>
+    <!-- Variables de entorno (Digital Ocean) - CARGA SINCRONA -->
+    <script src="js/env-config.js" onerror="console.log('⚠️ [ENV] env-config.js no encontrado, usando configuración manual'); window.SUPABASE_URL = null; window.SUPABASE_ANON_KEY = null;"></script>
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/supabase.js"></script>

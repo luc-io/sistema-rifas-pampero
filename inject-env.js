@@ -14,11 +14,28 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.log('⚠️ [BUILD] Variables de entorno no encontradas, la aplicación usará configuración manual');
-    // Crear archivo vacío para evitar errores 404
+    // Crear archivo de configuración vacío pero funcional
     const emptyConfig = `
+/**
+ * 🌊 Variables de Entorno - Digital Ocean App Platform
+ * No hay variables de entorno configuradas
+ */
+
 // No hay variables de entorno disponibles
 console.log('📱 [ENV] Variables de entorno no encontradas, usando configuración manual');
+
+// Definir variables vacías para evitar errores
+window.SUPABASE_URL = null;
+window.SUPABASE_ANON_KEY = null;
 `;
+    
+    // Asegurar que el directorio js existe
+    const jsDir = path.join(__dirname, 'js');
+    if (!fs.existsSync(jsDir)) {
+        fs.mkdirSync(jsDir, { recursive: true });
+        console.log('📱 [BUILD] Directorio js/ creado');
+    }
+    
     const outputPath = path.join(__dirname, 'js', 'env-config.js');
     fs.writeFileSync(outputPath, emptyConfig);
     console.log('✅ [BUILD] Archivo env-config.js creado (vacío)');

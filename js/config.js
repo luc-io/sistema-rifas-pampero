@@ -39,6 +39,10 @@ window.AppConfig = {
      * 📂 Cargar desde variables de entorno (Digital Ocean App Platform)
      */
     loadFromEnvironment: function() {
+        console.log('🔍 [CONFIG] Verificando variables de entorno...');
+        console.log('🔍 [CONFIG] window.SUPABASE_URL:', !!window.SUPABASE_URL ? '✅ Encontrada' : '❌ No encontrada');
+        console.log('🔍 [CONFIG] window.SUPABASE_ANON_KEY:', !!window.SUPABASE_ANON_KEY ? '✅ Encontrada' : '❌ No encontrada');
+        
         // Método 1: Variables de entorno inyectadas (Digital Ocean App Platform)
         // Estas variables se configuran en el panel de Digital Ocean
         const envUrl = window.SUPABASE_URL;
@@ -53,6 +57,8 @@ window.AppConfig = {
             return;
         }
         
+        console.log('📁 [CONFIG] Variables de entorno no disponibles, verificando localStorage...');
+        
         // Método 2: Configuración almacenada localmente (fallback)
         const storedConfig = localStorage.getItem('supabase_config_secure');
         
@@ -66,6 +72,12 @@ window.AppConfig = {
             } catch (error) {
                 console.warn('⚠️ [CONFIG] Error cargando configuración almacenada');
             }
+        } else {
+            console.log('📁 [CONFIG] No hay configuración en localStorage');
+        }
+        
+        if (!this.supabase.isConfigured) {
+            console.log('⚠️ [CONFIG] No se encontró configuración, se solicitará al usuario');
         }
     },
 
