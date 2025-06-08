@@ -120,9 +120,9 @@ window.AdminManager = {
                     <span>💰 Total: ${Utils.formatPrice(reservation.total)}</span>
                 </div>
                 <div class="admin-actions">
-                    <button class="btn btn-small" onclick="AdminManager.confirmReservation(${reservation.id}, 'efectivo')">✅ Confirmar Efectivo</button>
-                    <button class="btn btn-small" onclick="AdminManager.confirmReservation(${reservation.id}, 'transferencia')">🏦 Confirmar Transferencia</button>
-                    <button class="btn btn-secondary btn-small" onclick="AdminManager.cancelReservation(${reservation.id})">❌ Cancelar</button>
+                    <button class="btn btn-small" onclick="AdminManager.confirmReservation('${reservation.id}', 'efectivo')">✅ Confirmar Efectivo</button>
+                    <button class="btn btn-small" onclick="AdminManager.confirmReservation('${reservation.id}', 'transferencia')">🏦 Confirmar Transferencia</button>
+                    <button class="btn btn-secondary btn-small" onclick="AdminManager.cancelReservation('${reservation.id}')">❌ Cancelar</button>
                 </div>
             </div>
         `;
@@ -163,9 +163,17 @@ window.AdminManager = {
                 await window.SupabaseManager.saveSale(sale);
                 console.log('✅ [ADMIN] Venta de reserva guardada en Supabase');
                 
-                // Marcar reserva como confirmada
+                // IMPORTANTE: Actualizar estado local inmediatamente (la venta)
+                AppState.sales.push(sale);
+                console.log('✅ [ADMIN] Venta agregada al estado local');
+                
+                // Marcar reserva como confirmada en Supabase
                 await window.SupabaseManager.updateReservationStatus(reservationId, 'confirmed');
                 console.log('✅ [ADMIN] Reserva marcada como confirmada en Supabase');
+                
+                // IMPORTANTE: Actualizar estado local inmediatamente (la reserva)
+                reservation.status = 'confirmed';
+                console.log('✅ [ADMIN] Estado local de reserva actualizado');
             } else {
                 // Fallback a localStorage
                 AppState.sales.push(sale);
@@ -192,8 +200,8 @@ window.AdminManager = {
         
         // Generar mensaje de confirmación
         const numbersFormatted = reservation.numbers.map(n => Utils.formatNumber(n)).join(', ');
-        const whatsappMessage = NumbersManager.generateWhatsAppMessage(sale, numbersFormatted);
-        const whatsappUrl = `https://wa.me/${reservation.buyer.phone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
+        const whatsappMessage = NumbersManager.generateSimpleWhatsAppMessage(sale, numbersFormatted);
+        const whatsappUrl = `https://wa.me/${NumbersManager.formatPhoneForWhatsApp(reservation.buyer.phone)}?text=${encodeURIComponent(whatsappMessage)}`;
         
         if (confirm('¿Enviar confirmación por WhatsApp al cliente?')) {
             window.open(whatsappUrl, '_blank');
@@ -219,6 +227,10 @@ window.AdminManager = {
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
                 await window.SupabaseManager.updateReservationStatus(reservationId, 'cancelled');
                 console.log('✅ [ADMIN] Reserva cancelada en Supabase');
+                
+                // IMPORTANTE: Actualizar estado local inmediatamente
+                reservation.status = 'cancelled';
+                console.log('✅ [ADMIN] Estado local de reserva actualizado');
             } else {
                 reservation.status = 'cancelled';
                 await autoSave();
@@ -283,10 +295,10 @@ window.AdminManager = {
                 </div>
                 <div class="admin-actions">
                     ${sale.status === 'pending' ? 
-                        `<button class="btn btn-small" onclick="AdminManager.markAsPaid(${sale.id})">✅ Marcar Pagado</button>` : ''
+                        `<button class="btn btn-small" onclick="AdminManager.markAsPaid('${sale.id}')">✅ Marcar Pagado</button>` : ''
                     }
-                    <button class="btn btn-secondary btn-small" onclick="AdminManager.deleteSale(${sale.id})">🗑️ Eliminar</button>
-                    <button class="btn btn-secondary btn-small" onclick="AdminManager.sendWhatsAppConfirmation(${sale.id})">📱 Reenviar WhatsApp</button>
+                    <button class="btn btn-secondary btn-small" onclick="AdminManager.deleteSale('${sale.id}')">🗑️ Eliminar</button>
+                    <button class="btn btn-secondary btn-small" onclick="AdminManager.sendWhatsAppConfirmation('${sale.id}')">📱 Reenviar WhatsApp</button>
                 </div>
             </div>
         `;
@@ -424,9 +436,9 @@ window.AdminManager = {
         if (!sale) return;
         
         const numbersFormatted = sale.numbers.map(n => Utils.formatNumber(n)).join(', ');
-        const whatsappMessage = NumbersManager.generateWhatsAppMessage(sale, numbersFormatted);
+        const whatsappMessage = NumbersManager.generateSimpleWhatsAppMessage(sale, numbersFormatted);
         
-        const whatsappUrl = `https://wa.me/${sale.buyer.phone.replace(/[^\d]/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
+        const whatsappUrl = `https://wa.me/${NumbersManager.formatPhoneForWhatsApp(sale.buyer.phone)}?text=${encodeURIComponent(whatsappMessage)}`;
         window.open(whatsappUrl, '_blank');
     },
 
