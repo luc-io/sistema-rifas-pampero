@@ -187,6 +187,8 @@ window.NumbersManager = {
         const modalNumbers = document.getElementById('modalSelectedNumbers');
         const modalPrice = document.getElementById('modalTotalPrice');
         const modalTitle = modal.querySelector('h3');
+        const paymentButtons = modal.querySelector('.payment-buttons');
+        const transferInfo = document.getElementById('transferInfo');
 
         modalNumbers.innerHTML = AppState.selectedNumbers.map(num => 
             `<span class="selected-number">${Utils.formatNumber(num)}</span>`
@@ -195,39 +197,40 @@ window.NumbersManager = {
         const total = AppState.selectedNumbers.length * AppState.raffleConfig.price;
         modalPrice.textContent = `Total: ${Utils.formatPrice(total)}`;
 
+        // Remover botón de reserva anterior si existe
+        const existingReserveButton = document.getElementById('reserveButton');
+        if (existingReserveButton) {
+            existingReserveButton.remove();
+        }
+
         if (action === 'reserve') {
             modalTitle.textContent = `⏰ Reservar Números (${AppState.raffleConfig.reservationTime}h)`;
-            // Ocultar botones de pago para reservas
-            const paymentButtons = modal.querySelector('.payment-buttons');
-            if (paymentButtons) {
-                paymentButtons.style.display = 'none';
-            }
             
-            // Agregar botón de reserva
-            const transferInfo = document.getElementById('transferInfo');
-            if (!document.getElementById('reserveButton')) {
-                const reserveButton = document.createElement('button');
-                reserveButton.id = 'reserveButton';
-                reserveButton.className = 'btn';
-                reserveButton.textContent = '⏰ Confirmar Reserva';
-                reserveButton.style.width = '100%';
-                reserveButton.style.marginTop = '10px';
-                reserveButton.onclick = () => this.completePurchase();
-                transferInfo.parentNode.insertBefore(reserveButton, transferInfo.nextSibling);
-            }
+            // ✅ CORREGIDO: Solo mostrar botón de reserva, NO pedir método de pago
+            if (paymentButtons) paymentButtons.style.display = 'none';
+            if (transferInfo) transferInfo.style.display = 'none';
+            
+            // Agregar botón de reserva directo
+            const reserveButton = document.createElement('button');
+            reserveButton.id = 'reserveButton';
+            reserveButton.className = 'btn';
+            reserveButton.textContent = '⏰ Confirmar Reserva (Sin Pago)';
+            reserveButton.style.width = '100%';
+            reserveButton.style.background = '#ffc107';
+            reserveButton.style.color = '#000';
+            reserveButton.style.marginTop = '15px';
+            reserveButton.onclick = () => this.completePurchase(); // Sin método de pago
+            
+            // Insertar antes del formulario
+            const membershipArea = document.getElementById('membershipArea').closest('.form-group');
+            membershipArea.insertAdjacentElement('afterend', reserveButton);
+            
         } else {
             modalTitle.textContent = '💰 Completar Compra';
-            // Mostrar botones de pago para compras
-            const paymentButtons = modal.querySelector('.payment-buttons');
-            if (paymentButtons) {
-                paymentButtons.style.display = 'flex';
-            }
             
-            // Remover botón de reserva si existe
-            const reserveButton = document.getElementById('reserveButton');
-            if (reserveButton) {
-                reserveButton.remove();
-            }
+            // Mostrar botones de pago para compras directas
+            if (paymentButtons) paymentButtons.style.display = 'flex';
+            if (transferInfo) transferInfo.style.display = 'none';
         }
 
         modal.style.display = 'block';
@@ -604,6 +607,9 @@ window.NumbersManager = {
         
         return cleanPhone;
     },
+    /**
+     * Generar mensaje de reserva mejorado
+     */
     generateReservationMessage: function(reservation, numbersFormatted) {
         const expirationDate = reservation.expiresAt;
         
@@ -620,14 +626,17 @@ window.NumbersManager = {
         }
         
         message += `⏰ *Vence:* ${Utils.formatDateTime(expirationDate)}\n\n`;
-        message += `📅 *Para confirmar tu compra, responde al ${AppState.raffleConfig.whatsappNumber} con:*\n`;
-        message += `• "EFECTIVO" si pagas en efectivo\n`;
-        message += `• "TRANSFERENCIA" si pagas por transferencia\n\n`;
+        
+        // ✅ NUEVO MENSAJE CLARO PARA EL CLIENTE
+        message += `📞 *Para confirmar tu compra, comunícate al ${AppState.raffleConfig.whatsappNumber}*\n\n`;
+        message += `💡 *El administrador confirmará tu reserva como:*\n`;
+        message += `• 💵 Pago en efectivo\n`;
+        message += `• 🏦 Pago por transferencia\n\n`;
         message += `⚠️ *Importante:* Si no confirmas antes del vencimiento, los números quedarán disponibles nuevamente.\n\n`;
         
         // Agregar Instagram del club si está configurado
         if (AppState.raffleConfig.clubInstagram) {
-            message += `📱 *Síguenos en Instagram para novedades sobre navegación:* ${AppState.raffleConfig.clubInstagram}\n\n`;
+            message += `📱 *Síguenos en Instagram:* ${AppState.raffleConfig.clubInstagram}\n\n`;
         }
         
         message += `¡Gracias por tu reserva! 🍀⛵`;
@@ -704,9 +713,12 @@ window.NumbersManager = {
                         </a>
                     </div>
                     
-                    <p style="font-size: 14px; color: #666; margin-top: 15px;">
-                        💡 El cliente debe responder "EFECTIVO" o "TRANSFERENCIA" para confirmar
-                    </p>
+                    <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 14px;">
+                        <strong>📋 Próximos pasos:</strong><br>
+                        1. El cliente se comunicará para confirmar<br>
+                        2. Tú decides si cobra en efectivo o transferencia<br>
+                        3. Confirmas la reserva desde el panel de admin
+                    </div>
                     
                     <button class="btn btn-secondary" onclick="NumbersManager.closeConfirmationModal()">Cerrar</button>
                 </div>

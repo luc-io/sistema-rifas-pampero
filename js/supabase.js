@@ -119,6 +119,9 @@ window.SupabaseManager = {
         }
         
         try {
+            // 🛡️ IMPORTANTE: Mantener el ID original antes de insertar
+            const originalId = sale.id;
+            
             const { data, error } = await this.client
                 .from('sales')
                 .insert([{
@@ -134,10 +137,12 @@ window.SupabaseManager = {
                 
             if (error) throw error;
             
-            // Actualizar el sale con el ID de la base de datos
+            // ✅ CORREGIDO: Actualizar la venta con el ID de Supabase
             if (data && data[0]) {
-                sale.id = data[0].id;
+                sale.supabaseId = data[0].id; // Nuevo campo para ID de Supabase
+                sale.id = data[0].id; // Usar ID de Supabase como principal
                 sale.created_at = data[0].created_at;
+                console.log(`✅ [SUPABASE] Venta guardada - ID original: ${originalId}, ID Supabase: ${data[0].id}`);
             }
             
             console.log('✅ [SUPABASE] Venta guardada en Supabase');
@@ -163,6 +168,9 @@ window.SupabaseManager = {
         }
         
         try {
+            // 🛡️ IMPORTANTE: Mantener el ID original antes de insertar
+            const originalId = reservation.id;
+            
             const { data, error } = await this.client
                 .from('reservations')
                 .insert([{
@@ -178,10 +186,12 @@ window.SupabaseManager = {
                 
             if (error) throw error;
             
-            // Actualizar la reserva con el ID de la base de datos
+            // ✅ CORREGIDO: Actualizar la reserva con el ID de Supabase pero mantener referencia
             if (data && data[0]) {
-                reservation.id = data[0].id;
+                reservation.supabaseId = data[0].id; // Nuevo campo para ID de Supabase
+                reservation.id = data[0].id; // Usar ID de Supabase como principal
                 reservation.created_at = data[0].created_at;
+                console.log(`✅ [SUPABASE] Reserva guardada - ID original: ${originalId}, ID Supabase: ${data[0].id}`);
             }
             
             console.log('✅ [SUPABASE] Reserva guardada en Supabase');
@@ -214,18 +224,20 @@ window.SupabaseManager = {
                 
             if (error) throw error;
             
-            // Actualizar estado local
-            const reservation = AppState.reservations.find(r => r.id === reservationId);
+            // ✅ CORREGIDO: Actualizar estado local correctamente
+            const reservation = AppState.reservations.find(r => r.id == reservationId); // == para comparar string con number
             if (reservation) {
                 reservation.status = status;
-                Storage.save('reservations', AppState.reservations);
+                console.log(`✅ [SUPABASE] Reserva ${reservationId} actualizada a ${status} en memoria local`);
+            } else {
+                console.warn(`⚠️ [SUPABASE] No se encontró reserva ${reservationId} en memoria local`);
             }
             
-            console.log(`✅ Reserva ${reservationId} actualizada a ${status}`);
+            console.log(`✅ [SUPABASE] Reserva ${reservationId} actualizada a ${status} en Supabase`);
             return true;
             
         } catch (error) {
-            console.error('❌ Error actualizando reserva:', error);
+            console.error('❌ [SUPABASE] Error actualizando reserva:', error);
             return false;
         }
     },

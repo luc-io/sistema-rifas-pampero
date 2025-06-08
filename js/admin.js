@@ -226,8 +226,14 @@ window.AdminManager = {
      * Confirmar reserva
      */
     confirmReservation: async function(reservationId, paymentMethod) {
-        const reservation = AppState.reservations.find(r => r.id === reservationId);
+        console.log(`🔍 [ADMIN] Intentando confirmar reserva ID: ${reservationId} con método: ${paymentMethod}`);
+        console.log(`🔍 [ADMIN] Tipo de ID: ${typeof reservationId}`);
+        
+        // 🛡️ CORREGIDO: Buscar reserva con comparación flexible (string vs number)
+        const reservation = AppState.reservations.find(r => r.id == reservationId); // == para comparar string con number
         if (!reservation) {
+            console.error(`❌ [ADMIN] Reserva ${reservationId} no encontrada`);
+            console.log(`🔍 [ADMIN] IDs disponibles:`, AppState.reservations.map(r => r.id));
             Utils.showNotification('Reserva no encontrada', 'error');
             return;
         }
@@ -316,23 +322,38 @@ window.AdminManager = {
      * Cancelar reserva
      */
     cancelReservation: async function(reservationId) {
+        console.log(`🔍 [ADMIN] Intentando cancelar reserva ID: ${reservationId}`);
+        console.log(`🔍 [ADMIN] Tipo de ID: ${typeof reservationId}`);
+        console.log(`🔍 [ADMIN] Reservas actuales:`, AppState.reservations.map(r => ({ id: r.id, type: typeof r.id, status: r.status })));
+        
         if (!confirm('¿Estás seguro de cancelar esta reserva?')) return;
         
-        const reservation = AppState.reservations.find(r => r.id === reservationId);
+        // 🛡️ CORREGIDO: Buscar reserva con comparación flexible (string vs number)
+        const reservation = AppState.reservations.find(r => r.id == reservationId); // == para comparar string con number
         if (!reservation) {
+            console.error(`❌ [ADMIN] Reserva ${reservationId} no encontrada`);
+            console.log(`🔍 [ADMIN] IDs disponibles:`, AppState.reservations.map(r => r.id));
             Utils.showNotification('Reserva no encontrada', 'error');
             return;
         }
 
+        console.log(`✅ [ADMIN] Reserva encontrada:`, reservation);
+
         try {
             // Marcar como cancelada
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
-                await window.SupabaseManager.updateReservationStatus(reservationId, 'cancelled');
-                console.log('✅ [ADMIN] Reserva cancelada en Supabase');
-                
-                // IMPORTANTE: Actualizar estado local inmediatamente
-                reservation.status = 'cancelled';
-                console.log('✅ [ADMIN] Estado local de reserva actualizado');
+                const success = await window.SupabaseManager.updateReservationStatus(reservationId, 'cancelled');
+                if (success) {
+                    console.log('✅ [ADMIN] Reserva cancelada en Supabase');
+                    
+                    // IMPORTANTE: Actualizar estado local inmediatamente
+                    reservation.status = 'cancelled';
+                    console.log('✅ [ADMIN] Estado local de reserva actualizado');
+                } else {
+                    console.error('❌ [ADMIN] Error cancelando en Supabase');
+                    Utils.showNotification('Error cancelando la reserva en Supabase', 'error');
+                    return;
+                }
             } else {
                 reservation.status = 'cancelled';
                 await autoSave();
@@ -350,11 +371,13 @@ window.AdminManager = {
             if (button) {
                 button.classList.remove('reserved');
                 button.classList.add('available');
+                console.log(`✅ [ADMIN] Número ${number} liberado en UI`);
             }
         });
 
         this.updateInterface();
         Utils.showNotification('Reserva cancelada', 'success');
+        console.log('✅ [ADMIN] Cancelación completada exitosamente');
     },
 
     /**
