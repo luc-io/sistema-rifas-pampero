@@ -26,6 +26,13 @@ const AssignmentsManager = {
                 </div>
             </div>
             
+            <!-- Botón para crear nueva asignación -->
+            <div class="assignment-create-section">
+                <button class="btn btn-primary" onclick="AssignmentsManager.showCreateAssignmentModal()">
+                    ➕ Crear Nueva Asignación
+                </button>
+            </div>
+            
             <div class="assignments-stats">
                 <div class="stat-card">
                     <div class="stat-number" id="totalAssignments">0</div>
@@ -127,6 +134,284 @@ const AssignmentsManager = {
         document.getElementById('paidAssignments').textContent = paid;
         document.getElementById('pendingAssignments').textContent = pending;
         document.getElementById('expiredAssignments').textContent = expired;
+    },
+    
+    /**
+     * Mostrar modal para crear nueva asignación
+     */
+    showCreateAssignmentModal: function() {
+        const modalHtml = `
+            <div id="createAssignmentModal" class="modal" style="display: block;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>➕ Crear Nueva Asignación</h3>
+                        <span class="close-btn" onclick="AssignmentsManager.closeCreateAssignmentModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="sellerName">Nombre del vendedor:</label>
+                            <input type="text" id="sellerName" placeholder="Nombre del vendedor" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sellerPhone">Teléfono del vendedor:</label>
+                            <input type="tel" id="sellerPhone" placeholder="Teléfono del vendedor" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="assignedNumbers">Números a asignar:</label>
+                            <input type="text" id="assignedNumbers" placeholder="Ej: 001,002,003 o 001-005" required>
+                            <small style="color: #6c757d;">Puedes usar rangos (001-005) o lista separada por comas (001,002,003)</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="paymentDeadline">Fecha límite de pago:</label>
+                            <input type="datetime-local" id="paymentDeadline" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="assignmentNotes">Notas (opcional):</label>
+                            <textarea id="assignmentNotes" rows="3" placeholder="Notas adicionales sobre la asignación"></textarea>
+                        </div>
+                        
+                        <div id="assignmentPreview" class="assignment-preview" style="display: none;">
+                            <h4>Vista previa:</h4>
+                            <div id="previewContent"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="AssignmentsManager.closeCreateAssignmentModal()">Cancelar</button>
+                        <button class="btn btn-info" onclick="AssignmentsManager.previewAssignment()">🔍 Vista Previa</button>
+                        <button class="btn btn-primary" onclick="AssignmentsManager.createAssignment()">✅ Crear Asignación</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remover modal existente si hay uno
+        const existingModal = document.getElementById('createAssignmentModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Configurar fecha mínima como mañana
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        document.getElementById('paymentDeadline').min = tomorrow.toISOString().slice(0, 16);
+        
+        // Configurar fecha por defecto (24 horas)
+        const defaultDeadline = new Date();
+        defaultDeadline.setHours(defaultDeadline.getHours() + 24);
+        document.getElementById('paymentDeadline').value = defaultDeadline.toISOString().slice(0, 16);
+    },
+    
+    /**
+     * Cerrar modal de crear asignación
+     */
+    closeCreateAssignmentModal: function() {
+        const modal = document.getElementById('createAssignmentModal');
+        if (modal) {
+            modal.remove();
+        }
+    },
+    
+    /**
+     * Vista previa de la asignación
+     */
+    previewAssignment: function() {
+        const numbersInput = document.getElementById('assignedNumbers').value.trim();
+        if (!numbersInput) {
+            Utils.showNotification('Ingresa los números a asignar', 'warning');
+            return;
+        }
+        
+        try {
+            const numbers = this.parseNumbersInput(numbersInput);
+            const validation = this.validateNumbers(numbers);
+            
+            const previewDiv = document.getElementById('assignmentPreview');
+            const previewContent = document.getElementById('previewContent');
+            
+            if (validation.isValid) {
+                const total = numbers.length * AppState.raffleConfig.price;
+                previewContent.innerHTML = `
+                    <div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <p><strong>✅ Números válidos:</strong> ${numbers.map(n => Utils.formatNumber(n)).join(', ')}</p>
+                        <p><strong>📊 Cantidad:</strong> ${numbers.length} números</p>
+                        <p><strong>💰 Total:</strong> ${Utils.formatPrice(total)}</p>
+                    </div>
+                `;
+            } else {
+                previewContent.innerHTML = `
+                    <div style="background: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                        <p><strong>❌ Error en los números:</strong></p>
+                        <ul>
+                            ${validation.errors.map(error => `<li>${error}</li>`).join('')}
+                        </ul>
+                        ${validation.soldNumbers.length > 0 ? `
+                            <p><strong>⚠️ Números ya vendidos:</strong> ${validation.soldNumbers.map(n => Utils.formatNumber(n)).join(', ')}</p>
+                        ` : ''}
+                        ${validation.assignedNumbers.length > 0 ? `
+                            <p><strong>🗒 Números ya asignados:</strong> ${validation.assignedNumbers.map(n => Utils.formatNumber(n)).join(', ')}</p>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            previewDiv.style.display = 'block';
+        } catch (error) {
+            Utils.showNotification('Error procesando los números: ' + error.message, 'error');
+        }
+    },
+    
+    /**
+     * Crear nueva asignación
+     */
+    createAssignment: async function() {
+        const sellerName = document.getElementById('sellerName').value.trim();
+        const sellerPhone = document.getElementById('sellerPhone').value.trim();
+        const numbersInput = document.getElementById('assignedNumbers').value.trim();
+        const paymentDeadline = document.getElementById('paymentDeadline').value;
+        const notes = document.getElementById('assignmentNotes').value.trim();
+        
+        // Validaciones básicas
+        if (!sellerName || !sellerPhone || !numbersInput || !paymentDeadline) {
+            Utils.showNotification('Por favor completa todos los campos obligatorios', 'error');
+            return;
+        }
+        
+        try {
+            const numbers = this.parseNumbersInput(numbersInput);
+            const validation = this.validateNumbers(numbers);
+            
+            if (!validation.isValid) {
+                Utils.showNotification(`Error: ${validation.errors.join(', ')}`, 'error');
+                return;
+            }
+            
+            const assignment = {
+                id: Utils.generateId(),
+                seller_name: sellerName,
+                seller_phone: sellerPhone,
+                numbers: numbers,
+                total_amount: numbers.length * AppState.raffleConfig.price,
+                status: 'assigned',
+                assigned_at: new Date(),
+                created_at: new Date(),
+                payment_deadline: new Date(paymentDeadline),
+                notes: notes || null
+            };
+            
+            // Crear titulares para cada número
+            const numberOwners = numbers.map(number => ({
+                id: Utils.generateId(),
+                assignment_id: assignment.id,
+                number_value: number,
+                name: '',
+                phone: '',
+                email: '',
+                notes: '',
+                created_at: new Date(),
+                edited_at: new Date()
+            }));
+            
+            // Guardar en estado local
+            AppState.assignments.push(assignment);
+            AppState.numberOwners.push(...numberOwners);
+            
+            // Guardar en base de datos
+            if (window.SupabaseManager && SupabaseManager.isConnected) {
+                await SupabaseManager.saveAssignment(assignment);
+                await Promise.all(numberOwners.map(owner => SupabaseManager.saveNumberOwner(owner)));
+                console.log('✅ [ASSIGNMENTS] Asignación guardada en Supabase');
+            } else {
+                autoSave();
+                console.log('📱 [ASSIGNMENTS] Asignación guardada en localStorage');
+            }
+            
+            // Actualizar UI
+            this.updateAssignmentsList();
+            this.closeCreateAssignmentModal();
+            
+            Utils.showNotification(`Asignación creada exitosamente para ${sellerName}`, 'success');
+            
+        } catch (error) {
+            console.error('❌ [ASSIGNMENTS] Error creando asignación:', error);
+            Utils.showNotification('Error creando la asignación: ' + error.message, 'error');
+        }
+    },
+    
+    /**
+     * Parsear entrada de números (acepta rangos y listas)
+     */
+    parseNumbersInput: function(input) {
+        const numbers = [];
+        const parts = input.split(',').map(p => p.trim());
+        
+        for (const part of parts) {
+            if (part.includes('-')) {
+                // Es un rango
+                const [start, end] = part.split('-').map(p => parseInt(p.trim()));
+                if (isNaN(start) || isNaN(end) || start > end) {
+                    throw new Error(`Rango inválido: ${part}`);
+                }
+                for (let i = start; i <= end; i++) {
+                    numbers.push(i);
+                }
+            } else {
+                // Es un número individual
+                const num = parseInt(part);
+                if (isNaN(num)) {
+                    throw new Error(`Número inválido: ${part}`);
+                }
+                numbers.push(num);
+            }
+        }
+        
+        return [...new Set(numbers)]; // Eliminar duplicados
+    },
+    
+    /**
+     * Validar números antes de asignar
+     */
+    validateNumbers: function(numbers) {
+        const errors = [];
+        const soldNumbers = [];
+        const assignedNumbers = [];
+        
+        // Verificar rango válido
+        const maxNumber = AppState.raffleConfig.totalNumbers - 1;
+        const invalidNumbers = numbers.filter(n => n < 0 || n > maxNumber);
+        if (invalidNumbers.length > 0) {
+            errors.push(`Números fuera de rango (0-${maxNumber}): ${invalidNumbers.join(', ')}`);
+        }
+        
+        // Verificar números ya vendidos
+        const allSoldNumbers = AppState.sales.flatMap(sale => sale.numbers);
+        const conflictingSold = numbers.filter(n => allSoldNumbers.includes(n));
+        if (conflictingSold.length > 0) {
+            soldNumbers.push(...conflictingSold);
+            errors.push(`Números ya vendidos: ${conflictingSold.map(n => Utils.formatNumber(n)).join(', ')}`);
+        }
+        
+        // Verificar números ya asignados
+        const allAssignedNumbers = AppState.assignments
+            .filter(a => a.status === 'assigned')
+            .flatMap(a => a.numbers);
+        const conflictingAssigned = numbers.filter(n => allAssignedNumbers.includes(n));
+        if (conflictingAssigned.length > 0) {
+            assignedNumbers.push(...conflictingAssigned);
+            errors.push(`Números ya asignados: ${conflictingAssigned.map(n => Utils.formatNumber(n)).join(', ')}`);
+        }
+        
+        return {
+            isValid: errors.length === 0,
+            errors,
+            soldNumbers,
+            assignedNumbers
+        };
     },
     
     /**

@@ -235,6 +235,8 @@ window.RaffleApp = {
         console.log('🧽 [SETUP] Limpiando datos anteriores...');
         AppState.sales = [];
         AppState.reservations = [];
+        AppState.assignments = [];
+        AppState.numberOwners = [];
         AppState.selectedNumbers = [];
         AppState.currentAction = 'buy';
         AppState.selectedBuyer = null;
@@ -248,6 +250,8 @@ window.RaffleApp = {
         // Limpiar localStorage como cache
         Storage.save('sales', []);
         Storage.save('reservations', []);
+        Storage.save('assignments', []);
+        Storage.save('numberOwners', []);
         
         console.log('✅ [SETUP] Datos anteriores limpiados completamente');
 

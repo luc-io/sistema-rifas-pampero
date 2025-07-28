@@ -244,7 +244,53 @@ window.UtilitiesManager = {
         setTimeout(() => {
             this.testConnection();
             this.updateQuickStats();
+            this.updateGoogleSheetsStatus();
         }, 1000);
+    },
+    
+    /**
+     * Actualizar estado de Google Sheets
+     */
+    updateGoogleSheetsStatus: function() {
+        if (typeof GoogleSheetsManager === 'undefined') {
+            return;
+        }
+        
+        const indicator = document.getElementById('sheetsConnectionIndicator');
+        const text = document.getElementById('sheetsConnectionText');
+        const details = document.getElementById('sheetsConnectionDetails');
+        const createBtn = document.getElementById('createSheetsBtn');
+        const syncBtn = document.getElementById('syncSheetsBtn');
+        
+        if (!indicator || !text || !details) return;
+        
+        const status = GoogleSheetsManager.getStatus();
+        
+        if (!status.configured) {
+            indicator.style.background = '#ccc';
+            text.textContent = 'No configurado';
+            details.textContent = 'Configura las credenciales de Google Sheets';
+            if (createBtn) createBtn.disabled = true;
+            if (syncBtn) syncBtn.disabled = true;
+        } else if (!status.signedIn) {
+            indicator.style.background = '#ffc107';
+            text.textContent = 'Configurado - Iniciar sesión';
+            details.textContent = 'Credenciales configuradas, inicia sesión para usar';
+            if (createBtn) createBtn.disabled = false;
+            if (syncBtn) syncBtn.disabled = true;
+        } else if (status.signedIn && !status.hasSpreadsheet) {
+            indicator.style.background = '#17a2b8';
+            text.textContent = 'Conectado - Sin hoja';
+            details.textContent = 'Conectado a Google, crea una hoja para sincronizar';
+            if (createBtn) createBtn.disabled = false;
+            if (syncBtn) syncBtn.disabled = true;
+        } else {
+            indicator.style.background = '#28a745';
+            text.textContent = 'Completamente configurado';
+            details.textContent = 'Listo para sincronizar datos con Google Sheets';
+            if (createBtn) createBtn.disabled = false;
+            if (syncBtn) syncBtn.disabled = false;
+        }
     }
 };
 
