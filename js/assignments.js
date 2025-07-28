@@ -159,9 +159,32 @@ const AssignmentsManager = {
                         </div>
                         
                         <div class="form-group">
+                            <label>Método de asignación de números:</label>
+                            <div class="assignment-method-radio">
+                                <label>
+                                    <input type="radio" name="assignmentMethod" value="manual" checked onchange="AssignmentsManager.toggleAssignmentMethod()">
+                                    <span>Manual (especificar números)</span>
+                                </label>
+                                <label>
+                                    <input type="radio" name="assignmentMethod" value="consecutive" onchange="AssignmentsManager.toggleAssignmentMethod()">
+                                    <span>Consecutivos (cantidad automática)</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" id="manualNumbersGroup">
                             <label for="assignedNumbers">Números a asignar:</label>
-                            <input type="text" id="assignedNumbers" placeholder="Ej: 001,002,003 o 001-005" required>
+                            <input type="text" id="assignedNumbers" placeholder="Ej: 001,002,003 o 001-005">
                             <small style="color: #6c757d;">Puedes usar rangos (001-005) o lista separada por comas (001,002,003)</small>
+                        </div>
+                        
+                        <div class="form-group" id="consecutiveNumbersGroup" style="display: none;">
+                            <label for="consecutiveCount">Cantidad de números consecutivos:</label>
+                            <input type="number" id="consecutiveCount" min="1" max="50" placeholder="Ej: 10">
+                            <div class="consecutive-info">
+                                🔄 <strong>Números consecutivos automáticos:</strong> El sistema buscará y asignará la primera secuencia de números consecutivos disponibles.
+                                <br>📊 Ejemplo: Si solicitas 5 números, podrías obtener 045, 046, 047, 048, 049.
+                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -208,6 +231,112 @@ const AssignmentsManager = {
     },
     
     /**
+     * Alternar entre modo manual y consecutivo
+     */
+    toggleAssignmentMethod: function() {
+        const method = document.querySelector('input[name="assignmentMethod"]:checked').value;
+        const manualGroup = document.getElementById('manualNumbersGroup');
+        const consecutiveGroup = document.getElementById('consecutiveNumbersGroup');
+        
+        if (method === 'manual') {
+            manualGroup.style.display = 'block';
+            consecutiveGroup.style.display = 'none';
+        } else {
+            manualGroup.style.display = 'none';
+            consecutiveGroup.style.display = 'block';
+            // Actualizar información de números consecutivos disponibles
+            setTimeout(() => this.updateConsecutiveInfo(), 100);
+        }
+    },
+    
+    /**
+     * Encontrar números consecutivos disponibles
+     */
+    findConsecutiveNumbers: function(count) {
+        const maxNumber = AppState.raffleConfig.totalNumbers - 1;
+        const allSoldNumbers = AppState.sales.flatMap(sale => sale.numbers);
+        const allAssignedNumbers = AppState.assignments
+            .filter(a => a.status === 'assigned')
+            .flatMap(a => a.numbers);
+        const unavailableNumbers = [...allSoldNumbers, ...allAssignedNumbers];
+        
+        // Buscar secuencia consecutiva disponible
+        for (let start = 0; start <= maxNumber - count + 1; start++) {
+            let isConsecutiveAvailable = true;
+            
+            for (let i = 0; i < count; i++) {
+                if (unavailableNumbers.includes(start + i)) {
+                    isConsecutiveAvailable = false;
+                    break;
+                }
+            }
+            
+            if (isConsecutiveAvailable) {
+                const consecutiveNumbers = [];
+                for (let i = 0; i < count; i++) {
+                    consecutiveNumbers.push(start + i);
+                }
+                return consecutiveNumbers;
+            }
+        }
+        
+        return null; // No se encontraron números consecutivos disponibles
+        
+    },
+    
+    /**
+     * Calcular máximos números consecutivos disponibles
+     */
+    getMaxConsecutiveAvailable: function() {
+        const maxNumber = AppState.raffleConfig.totalNumbers - 1;
+        const allSoldNumbers = AppState.sales.flatMap(sale => sale.numbers);
+        const allAssignedNumbers = AppState.assignments
+            .filter(a => a.status === 'assigned')
+            .flatMap(a => a.numbers);
+        const unavailableNumbers = new Set([...allSoldNumbers, ...allAssignedNumbers]);
+        
+        let maxConsecutive = 0;
+        let currentConsecutive = 0;
+        
+        for (let i = 0; i <= maxNumber; i++) {
+            if (!unavailableNumbers.has(i)) {
+                currentConsecutive++;
+                maxConsecutive = Math.max(maxConsecutive, currentConsecutive);
+            } else {
+                currentConsecutive = 0;
+            }
+        }
+        
+        return maxConsecutive;
+    },
+    
+    /**
+     * Actualizar información de números consecutivos disponibles
+     */
+    updateConsecutiveInfo: function() {
+        const infoDiv = document.querySelector('.consecutive-info');
+        if (!infoDiv) return;
+        
+        const maxAvailable = this.getMaxConsecutiveAvailable();
+        const totalAvailable = AppState.raffleConfig.totalNumbers - 
+            AppState.sales.reduce((sum, sale) => sum + sale.numbers.length, 0) -
+            AppState.assignments.filter(a => a.status === 'assigned').reduce((sum, a) => sum + a.numbers.length, 0);
+            
+        infoDiv.innerHTML = `
+            🔄 <strong>Números consecutivos automáticos:</strong> El sistema buscará y asignará la primera secuencia de números consecutivos disponibles.
+            <br>📊 Máximo consecutivo disponible: <strong>${maxAvailable}</strong> números
+            <br>📊 Total disponibles: <strong>${totalAvailable}</strong> números
+            <br>💫 Ejemplo: Si solicitas 5 números, podrías obtener 045, 046, 047, 048, 049.
+        `;
+        
+        // Actualizar el max del input
+        const countInput = document.getElementById('consecutiveCount');
+        if (countInput) {
+            countInput.max = Math.min(maxAvailable, 50);
+        }
+    },
+    
+    /**
      * Cerrar modal de crear asignación
      */
     closeCreateAssignmentModal: function() {
@@ -221,14 +350,30 @@ const AssignmentsManager = {
      * Vista previa de la asignación
      */
     previewAssignment: function() {
-        const numbersInput = document.getElementById('assignedNumbers').value.trim();
-        if (!numbersInput) {
-            Utils.showNotification('Ingresa los números a asignar', 'warning');
-            return;
-        }
+        const method = document.querySelector('input[name="assignmentMethod"]:checked').value;
+        let numbers = [];
         
         try {
-            const numbers = this.parseNumbersInput(numbersInput);
+            if (method === 'manual') {
+                const numbersInput = document.getElementById('assignedNumbers').value.trim();
+                if (!numbersInput) {
+                    Utils.showNotification('Ingresa los números a asignar', 'warning');
+                    return;
+                }
+                numbers = this.parseNumbersInput(numbersInput);
+            } else {
+                const count = parseInt(document.getElementById('consecutiveCount').value);
+                if (!count || count < 1) {
+                    Utils.showNotification('Ingresa una cantidad válida de números', 'warning');
+                    return;
+                }
+                numbers = this.findConsecutiveNumbers(count);
+                if (!numbers) {
+                    Utils.showNotification(`No se encontraron ${count} números consecutivos disponibles`, 'error');
+                    return;
+                }
+            }
+            
             const validation = this.validateNumbers(numbers);
             
             const previewDiv = document.getElementById('assignmentPreview');
@@ -236,11 +381,17 @@ const AssignmentsManager = {
             
             if (validation.isValid) {
                 const total = numbers.length * AppState.raffleConfig.price;
+                const firstNumber = numbers.length > 0 ? Math.min(...numbers) : 0;
+                const lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
+                const isConsecutive = method === 'consecutive' || (numbers.length > 1 && lastNumber - firstNumber === numbers.length - 1);
+                
                 previewContent.innerHTML = `
                     <div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
                         <p><strong>✅ Números válidos:</strong> ${numbers.map(n => Utils.formatNumber(n)).join(', ')}</p>
                         <p><strong>📊 Cantidad:</strong> ${numbers.length} números</p>
                         <p><strong>💰 Total:</strong> ${Utils.formatPrice(total)}</p>
+                        ${method === 'consecutive' ? '<p><strong>🔄 Método:</strong> Números consecutivos automáticos</p>' : ''}
+                        ${isConsecutive && numbers.length > 1 ? `<p><strong>🔢 Secuencia:</strong> Del ${Utils.formatNumber(firstNumber)} al ${Utils.formatNumber(lastNumber)}</p>` : ''}
                     </div>
                 `;
             } else {
@@ -272,18 +423,47 @@ const AssignmentsManager = {
     createAssignment: async function() {
         const sellerName = document.getElementById('sellerName').value.trim();
         const sellerPhone = document.getElementById('sellerPhone').value.trim();
-        const numbersInput = document.getElementById('assignedNumbers').value.trim();
         const paymentDeadline = document.getElementById('paymentDeadline').value;
         const notes = document.getElementById('assignmentNotes').value.trim();
+        const method = document.querySelector('input[name="assignmentMethod"]:checked').value;
         
         // Validaciones básicas
-        if (!sellerName || !sellerPhone || !numbersInput || !paymentDeadline) {
-            Utils.showNotification('Por favor completa todos los campos obligatorios', 'error');
+        const fieldValidation = AssignmentValidation.validateRequiredFields(sellerName, sellerPhone, paymentDeadline);
+        if (!fieldValidation.isValid) {
+            Utils.showNotification(`Error: ${fieldValidation.errors.join(', ')}`, 'error');
             return;
         }
         
+        // Validar formato de teléfono
+        if (!AssignmentValidation.validatePhone(sellerPhone)) {
+            Utils.showNotification('El formato del teléfono no es válido', 'error');
+            return;
+        }
+        
+        let numbers = [];
+        
         try {
-            const numbers = this.parseNumbersInput(numbersInput);
+            // Obtener números según el método seleccionado
+            if (method === 'manual') {
+                const numbersInput = document.getElementById('assignedNumbers').value.trim();
+                if (!numbersInput) {
+                    Utils.showNotification('Ingresa los números a asignar', 'error');
+                    return;
+                }
+                numbers = this.parseNumbersInput(numbersInput);
+            } else {
+                const count = parseInt(document.getElementById('consecutiveCount').value);
+                if (!count || count < 1) {
+                    Utils.showNotification('Ingresa una cantidad válida de números', 'error');
+                    return;
+                }
+                numbers = this.findConsecutiveNumbers(count);
+                if (!numbers) {
+                    Utils.showNotification(`No se encontraron ${count} números consecutivos disponibles`, 'error');
+                    return;
+                }
+            }
+            
             const validation = this.validateNumbers(numbers);
             
             if (!validation.isValid) {
@@ -294,13 +474,14 @@ const AssignmentsManager = {
             const assignment = {
                 id: Utils.generateId(),
                 seller_name: sellerName,
-                seller_phone: sellerPhone,
+                seller_phone: AssignmentValidation.formatPhone(sellerPhone),
                 numbers: numbers,
                 total_amount: numbers.length * AppState.raffleConfig.price,
                 status: 'assigned',
                 assigned_at: new Date(),
                 created_at: new Date(),
                 payment_deadline: new Date(paymentDeadline),
+                assignment_method: method, // Guardar el método usado
                 notes: notes || null
             };
             
@@ -335,7 +516,8 @@ const AssignmentsManager = {
             this.updateAssignmentsList();
             this.closeCreateAssignmentModal();
             
-            Utils.showNotification(`Asignación creada exitosamente para ${sellerName}`, 'success');
+            const methodText = method === 'consecutive' ? 'consecutivos automáticos' : 'manuales';
+            Utils.showNotification(`Asignación creada exitosamente para ${sellerName} (${numbers.length} números ${methodText})`, 'success');
             
         } catch (error) {
             console.error('❌ [ASSIGNMENTS] Error creando asignación:', error);

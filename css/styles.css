@@ -1389,6 +1389,59 @@ body {
     text-align: center;
 }
 
+/* Estilos para radio buttons de método de asignación */
+.assignment-method-radio {
+    display: flex;
+    gap: 15px;
+    margin: 10px 0;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.assignment-method-radio label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal !important;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
+
+.assignment-method-radio label:hover {
+    background: #e9ecef;
+}
+
+.assignment-method-radio input[type="radio"] {
+    margin: 0;
+    width: auto;
+}
+
+.assignment-method-radio input[type="radio"]:checked + span {
+    font-weight: 600;
+    color: #4CAF50;
+}
+
+/* Transiciones suaves para alternar grupos */
+#manualNumbersGroup,
+#consecutiveNumbersGroup {
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.consecutive-info {
+    background: #e8f5e8;
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+    font-size: 13px;
+    color: #2d5016;
+    border-left: 4px solid #4CAF50;
+}
+
 .utility-group {
     border: 1px solid #e9ecef;
     border-radius: 8px;
