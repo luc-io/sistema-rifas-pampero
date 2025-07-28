@@ -444,6 +444,22 @@ window.SupabaseManager = {
                 console.log(`✅ [SUPABASE] ${AppState.reservations.length} reservas cargadas`);
             }
 
+            // Cargar asignaciones
+            try {
+                AppState.assignments = await this.getAssignments();
+            } catch (error) {
+                console.warn('⚠️ Error cargando asignaciones (tabla puede no existir):', error.message);
+                AppState.assignments = [];
+            }
+
+            // Cargar titulares de números
+            try {
+                AppState.numberOwners = await this.getNumberOwners();
+            } catch (error) {
+                console.warn('⚠️ Error cargando titulares (tabla puede no existir):', error.message);
+                AppState.numberOwners = [];
+            }
+
             console.log('✅ [SUPABASE] Todos los datos cargados desde Supabase');
             
             // NO guardar en localStorage - mantener Supabase como única fuente de verdad
@@ -587,6 +603,261 @@ window.SupabaseManager = {
         } catch (error) {
             console.error('Error obteniendo estadísticas:', error);
             return null;
+        }
+    },
+
+    // ==========================================
+    // NUEVAS FUNCIONES PARA ASIGNACIONES
+    // ==========================================
+
+    /**
+     * Guardar asignación
+     */
+    saveAssignment: async function(assignment) {
+        if (!this.isConnected) {
+            console.warn('⚠️ Supabase no conectado, rechazando guardado');
+            throw new Error('Supabase no conectado');
+        }
+        
+        try {
+            const originalId = assignment.id;
+            
+            const { data, error } = await this.client
+                .from('assignments')
+                .insert([{
+                    raffle_id: assignment.raffle_id || 'current',
+                    seller_name: assignment.seller_name,
+                    seller_lastname: assignment.seller_lastname,
+                    seller_phone: assignment.seller_phone,
+                    seller_email: assignment.seller_email,
+                    numbers: assignment.numbers,
+                    total_amount: assignment.total_amount,
+                    status: assignment.status,
+                    assigned_at: assignment.assigned_at.toISOString(),
+                    payment_deadline: assignment.payment_deadline ? assignment.payment_deadline.toISOString() : null,
+                    notes: assignment.notes
+                }])
+                .select();
+                
+            if (error) throw error;
+            
+            // Actualizar con ID de Supabase
+            if (data && data[0]) {
+                assignment.supabaseId = data[0].id;
+                assignment.id = data[0].id;
+                assignment.created_at = data[0].created_at;
+                console.log(`✅ [SUPABASE] Asignación guardada - ID original: ${originalId}, ID Supabase: ${data[0].id}`);
+            }
+            
+            console.log('✅ [SUPABASE] Asignación guardada en Supabase');
+            
+            // Actualizar estado local
+            if (!AppState.assignments) AppState.assignments = [];
+            AppState.assignments.push(assignment);
+            
+            return data;
+            
+        } catch (error) {
+            console.error('❌ [SUPABASE] Error guardando asignación:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Guardar titular de número
+     */
+    saveNumberOwner: async function(owner) {
+        if (!this.isConnected) {
+            throw new Error('Supabase no conectado');
+        }
+        
+        try {
+            const { data, error } = await this.client
+                .from('number_owners')
+                .insert([{
+                    assignment_id: owner.assignment_id,
+                    number_value: owner.number_value,
+                    owner_name: owner.owner_name,
+                    owner_lastname: owner.owner_lastname,
+                    owner_phone: owner.owner_phone,
+                    owner_email: owner.owner_email,
+                    owner_instagram: owner.owner_instagram,
+                    membership_area: owner.membership_area,
+                    edited_at: owner.edited_at.toISOString()
+                }])
+                .select();
+                
+            if (error) throw error;
+            
+            if (data && data[0]) {
+                owner.id = data[0].id;
+                owner.created_at = data[0].created_at;
+            }
+            
+            console.log('✅ [SUPABASE] Titular guardado en Supabase');
+            
+            // Actualizar estado local
+            if (!AppState.numberOwners) AppState.numberOwners = [];
+            AppState.numberOwners.push(owner);
+            
+            return data;
+            
+        } catch (error) {
+            console.error('❌ [SUPABASE] Error guardando titular:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Obtener asignaciones
+     */
+    getAssignments: async function() {
+        if (!this.isConnected) {
+            throw new Error('Supabase no conectado');
+        }
+        
+        try {
+            const { data, error } = await this.client
+                .from('assignments')
+                .select('*')
+                .eq('raffle_id', 'current')
+                .order('created_at', { ascending: false });
+                
+            if (error) throw error;
+            
+            const assignments = (data || []).map(assignment => ({
+                id: assignment.id,
+                raffle_id: assignment.raffle_id,
+                seller_name: assignment.seller_name,
+                seller_lastname: assignment.seller_lastname,
+                seller_phone: assignment.seller_phone,
+                seller_email: assignment.seller_email,
+                numbers: assignment.numbers,
+                total_amount: assignment.total_amount,
+                status: assignment.status,
+                assigned_at: DateUtils.parseDate(assignment.assigned_at),
+                payment_deadline: assignment.payment_deadline ? DateUtils.parseDate(assignment.payment_deadline) : null,
+                paid_at: assignment.paid_at ? DateUtils.parseDate(assignment.paid_at) : null,
+                payment_method: assignment.payment_method,
+                notes: assignment.notes,
+                created_at: DateUtils.parseDate(assignment.created_at)
+            }));
+            
+            console.log(`✅ [SUPABASE] ${assignments.length} asignaciones cargadas`);
+            return assignments;
+            
+        } catch (error) {
+            console.error('❌ [SUPABASE] Error cargando asignaciones:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Obtener titulares de números
+     */
+    getNumberOwners: async function() {
+        if (!this.isConnected) {
+            throw new Error('Supabase no conectado');
+        }
+        
+        try {
+            const { data, error } = await this.client
+                .from('number_owners')
+                .select('*')
+                .order('number_value', { ascending: true });
+                
+            if (error) throw error;
+            
+            const owners = (data || []).map(owner => ({
+                id: owner.id,
+                assignment_id: owner.assignment_id,
+                number_value: owner.number_value,
+                owner_name: owner.owner_name,
+                owner_lastname: owner.owner_lastname,
+                owner_phone: owner.owner_phone,
+                owner_email: owner.owner_email,
+                owner_instagram: owner.owner_instagram,
+                membership_area: owner.membership_area,
+                edited_at: DateUtils.parseDate(owner.edited_at),
+                created_at: DateUtils.parseDate(owner.created_at)
+            }));
+            
+            console.log(`✅ [SUPABASE] ${owners.length} titulares cargados`);
+            return owners;
+            
+        } catch (error) {
+            console.error('❌ [SUPABASE] Error cargando titulares:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Actualizar asignación
+     */
+    updateAssignment: async function(assignmentId, updateData) {
+        if (!this.isConnected) {
+            throw new Error('Supabase no conectado');
+        }
+        
+        try {
+            const { error } = await this.client
+                .from('assignments')
+                .update({
+                    ...updateData,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', assignmentId);
+                
+            if (error) throw error;
+            
+            // Actualizar estado local
+            const assignment = AppState.assignments?.find(a => a.id == assignmentId);
+            if (assignment) {
+                Object.assign(assignment, updateData);
+                console.log(`✅ [SUPABASE] Asignación ${assignmentId} actualizada en memoria local`);
+            }
+            
+            console.log(`✅ [SUPABASE] Asignación ${assignmentId} actualizada en Supabase`);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ [SUPABASE] Error actualizando asignación:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Actualizar titular de número
+     */
+    updateNumberOwner: async function(ownerId, updateData) {
+        if (!this.isConnected) {
+            throw new Error('Supabase no conectado');
+        }
+        
+        try {
+            const { error } = await this.client
+                .from('number_owners')
+                .update({
+                    ...updateData,
+                    edited_at: new Date().toISOString()
+                })
+                .eq('id', ownerId);
+                
+            if (error) throw error;
+            
+            // Actualizar estado local
+            const owner = AppState.numberOwners?.find(o => o.id == ownerId);
+            if (owner) {
+                Object.assign(owner, updateData);
+                console.log(`✅ [SUPABASE] Titular ${ownerId} actualizado en memoria local`);
+            }
+            
+            console.log(`✅ [SUPABASE] Titular ${ownerId} actualizado en Supabase`);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ [SUPABASE] Error actualizando titular:', error);
+            throw error;
         }
     }
 };

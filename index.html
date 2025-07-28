@@ -32,6 +32,7 @@
 
         <div class="nav-tabs">
             <button class="tab active" onclick="showTab('setup')">Configurar</button>
+            <button class="tab" onclick="showTab('assignments')">Asignaciones</button>
             <button class="tab" onclick="showTab('numbers')">Números</button>
             <button class="tab" onclick="showTab('admin')">Administrar</button>
             <button class="tab" onclick="showTab('reports')">Reportes</button>
@@ -104,6 +105,16 @@
                 </div>
 
                 <button class="btn" onclick="RaffleApp.setupRaffle()">Crear Rifa</button>
+            </div>
+        </div>
+
+        <!-- Tab: Asignaciones -->
+        <div class="tab-content" id="assignments">
+            <div id="assignmentsContent">
+                <div class="setup-needed">
+                    <h3>🎯 Configura tu rifa primero</h3>
+                    <p>Ve a la pestaña "Configurar" para crear tu rifa</p>
+                </div>
             </div>
         </div>
 
@@ -261,6 +272,7 @@
     <script src="js/utils.js"></script>
     <script src="js/supabase.js"></script>
     <script src="js/utilities.js"></script>
+    <script src="js/assignments.js"></script>
     <script src="js/numbers.js"></script>
     <script src="js/admin.js"></script>
     <script src="js/reports.js"></script>

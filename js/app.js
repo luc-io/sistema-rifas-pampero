@@ -301,6 +301,7 @@ window.RaffleApp = {
 
         // Inicializar interfaces con datos limpios
         NumbersManager.createInterface();
+        AssignmentsManager.createInterface();
         AdminManager.createInterface();
         NumbersManager.startReservationChecker();
         
@@ -336,5 +337,161 @@ window.RaffleApp = {
 document.addEventListener('DOMContentLoaded', function() {
     RaffleApp.init();
 });
+
+// ==========================================
+// FUNCIONES GLOBALES DE NAVEGACIÓN
+// ==========================================
+
+/**
+ * Cambiar entre pestañas
+ */
+function showTab(tabName) {
+    // Ocultar todas las pestañas
+    const allTabs = document.querySelectorAll('.tab-content');
+    const allTabButtons = document.querySelectorAll('.tab');
+    
+    allTabs.forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    allTabButtons.forEach(button => {
+        button.classList.remove('active');
+    });
+    
+    // Mostrar la pestaña seleccionada
+    const selectedTab = document.getElementById(tabName);
+    const selectedButton = document.querySelector(`[onclick="showTab('${tabName}')"]`);
+    
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
+    
+    // Cargar datos específicos de la pestaña si es necesario
+    if (tabName === 'assignments' && typeof AssignmentsManager !== 'undefined') {
+        AssignmentsManager.loadAssignments();
+    }
+    
+    if (tabName === 'admin' && typeof AdminManager !== 'undefined') {
+        AdminManager.updateInterface();
+    }
+    
+    if (tabName === 'numbers' && typeof NumbersManager !== 'undefined') {
+        NumbersManager.updateDisplay();
+    }
+}
+
+/**
+ * Funciones globales para manejar datos entre módulos
+ */
+function autoSave() {
+    if (typeof Storage !== 'undefined') {
+        Storage.save('raffleConfig', AppState.raffleConfig);
+        Storage.save('sales', AppState.sales);
+        Storage.save('reservations', AppState.reservations);
+        Storage.save('assignments', AppState.assignments || []);
+        Storage.save('numberOwners', AppState.numberOwners || []);
+    }
+}
+
+function loadFromStorage() {
+    console.log('📁 [STORAGE] Cargando datos...');
+    
+    if (window.SupabaseManager && SupabaseManager.isConnected) {
+        console.log('☁️ [STORAGE] Supabase disponible, cargando desde la nube...');
+        SupabaseManager.loadAllData()
+            .then(() => {
+                console.log('✅ [STORAGE] Datos cargados desde Supabase');
+                initializeInterfaces();
+            })
+            .catch((error) => {
+                console.error('❌ [STORAGE] Error cargando desde Supabase:', error);
+                console.log('📱 [STORAGE] Fallback a localStorage...');
+                loadFromLocalStorage();
+            });
+    } else {
+        console.log('📱 [STORAGE] Usando localStorage...');
+        loadFromLocalStorage();
+    }
+}
+
+function loadFromLocalStorage() {
+    AppState.raffleConfig = Storage.load('raffleConfig');
+    AppState.sales = Storage.load('sales', []);
+    AppState.reservations = Storage.load('reservations', []);
+    AppState.assignments = Storage.load('assignments', []);
+    AppState.numberOwners = Storage.load('numberOwners', []);
+    
+    // Migrar fechas
+    if (AppState.raffleConfig && AppState.raffleConfig.drawDate) {
+        AppState.raffleConfig.drawDate = DateUtils.parseDate(AppState.raffleConfig.drawDate);
+        AppState.raffleConfig.createdAt = DateUtils.parseDate(AppState.raffleConfig.createdAt);
+    }
+    
+    AppState.sales.forEach(sale => {
+        sale.date = DateUtils.parseDate(sale.date);
+    });
+    
+    AppState.reservations.forEach(reservation => {
+        reservation.createdAt = DateUtils.parseDate(reservation.createdAt);
+        reservation.expiresAt = DateUtils.parseDate(reservation.expiresAt);
+    });
+    
+    if (AppState.assignments) {
+        AppState.assignments.forEach(assignment => {
+            assignment.assigned_at = DateUtils.parseDate(assignment.assigned_at);
+            assignment.created_at = DateUtils.parseDate(assignment.created_at);
+            if (assignment.payment_deadline) {
+                assignment.payment_deadline = DateUtils.parseDate(assignment.payment_deadline);
+            }
+            if (assignment.paid_at) {
+                assignment.paid_at = DateUtils.parseDate(assignment.paid_at);
+            }
+        });
+    }
+    
+    if (AppState.numberOwners) {
+        AppState.numberOwners.forEach(owner => {
+            owner.edited_at = DateUtils.parseDate(owner.edited_at);
+            owner.created_at = DateUtils.parseDate(owner.created_at);
+        });
+    }
+    
+    console.log('✅ [STORAGE] Datos cargados desde localStorage');
+    initializeInterfaces();
+}
+
+function initializeInterfaces() {
+    if (AppState.raffleConfig) {
+        // Actualizar header
+        document.getElementById('raffleTitle').textContent = AppState.raffleConfig.name;
+        const drawDateFormatted = Utils.formatDateTime(AppState.raffleConfig.drawDate);
+        document.getElementById('raffleSubtitle').textContent = 
+            `${AppState.raffleConfig.organization} - ${AppState.raffleConfig.price} por número - Sorteo: ${drawDateFormatted}`;
+        
+        // Crear interfaces
+        if (typeof NumbersManager !== 'undefined') {
+            NumbersManager.createInterface();
+        }
+        
+        if (typeof AssignmentsManager !== 'undefined') {
+            AssignmentsManager.createInterface();
+        }
+        
+        if (typeof AdminManager !== 'undefined') {
+            AdminManager.createInterface();
+        }
+        
+        // Inicializar utilidades
+        if (typeof UtilitiesManager !== 'undefined') {
+            UtilitiesManager.init();
+        }
+        
+        console.log('✅ [INIT] Interfaces inicializadas');
+    }
+}
 
 console.log('✅ App.js cargado correctamente');

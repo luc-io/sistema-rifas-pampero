@@ -9,6 +9,8 @@ window.AppState = {
     selectedNumbers: [],
     sales: [],
     reservations: [],
+    assignments: [], // Nueva propiedad para asignaciones
+    numberOwners: [], // Nueva propiedad para titulares de números
     currentAction: 'buy', // 'buy' o 'reserve'
     selectedBuyer: null
 };

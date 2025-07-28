@@ -26,6 +26,14 @@ window.NumbersManager = {
                     Reservado
                 </div>
                 <div class="legend-item">
+                    <div class="legend-color" style="background: #ffc107;"></div>
+                    Asignado
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #007bff;"></div>
+                    Confirmado
+                </div>
+                <div class="legend-item">
                     <div class="legend-color" style="background: #f8d7da;"></div>
                     Vendido
                 </div>
@@ -103,13 +111,25 @@ window.NumbersManager = {
     toggleNumber: function(number) {
         const button = document.getElementById(`number-${number}`);
         
-        // Verificar si el número ya está vendido o reservado por otro
+        // Verificar si el número ya está vendido
         if (button.classList.contains('sold')) {
+            Utils.showNotification('Este número ya está vendido', 'warning');
             return;
         }
         
+        // Verificar si está asignado o confirmado
+        if (button.classList.contains('assigned')) {
+            Utils.showNotification('Este número está asignado a un vendedor', 'warning');
+            return;
+        }
+        
+        if (button.classList.contains('confirmed')) {
+            Utils.showNotification('Este número está confirmado para el sorteo', 'warning');
+            return;
+        }
+        
+        // Verificar reservas temporales (sistema antiguo)
         if (button.classList.contains('reserved')) {
-            // Verificar si la reserva está expirada
             const reservation = AppState.reservations.find(r => 
                 r.numbers.includes(number) && r.status === 'active'
             );
@@ -789,23 +809,50 @@ window.NumbersManager = {
     updateDisplay: function() {
         if (!AppState.raffleConfig) return;
 
-        // Marcar números vendidos
+        // Primero limpiar todos los estados
+        for (let i = 0; i < AppState.raffleConfig.totalNumbers; i++) {
+            const button = document.getElementById(`number-${i}`);
+            if (button) {
+                button.classList.remove('sold', 'reserved', 'assigned', 'confirmed');
+                button.classList.add('available');
+            }
+        }
+
+        // Marcar números vendidos (prioridad más alta)
         AppState.sales.forEach(sale => {
             sale.numbers.forEach(number => {
                 const button = document.getElementById(`number-${number}`);
                 if (button) {
-                    button.classList.remove('available', 'reserved');
+                    button.classList.remove('available', 'reserved', 'assigned', 'confirmed');
                     button.classList.add('sold');
                 }
             });
         });
 
-        // Marcar números reservados
+        // Marcar números asignados
+        if (AppState.assignments) {
+            AppState.assignments.forEach(assignment => {
+                assignment.numbers.forEach(number => {
+                    const button = document.getElementById(`number-${number}`);
+                    if (button && !button.classList.contains('sold')) {
+                        button.classList.remove('available', 'reserved');
+                        
+                        if (assignment.status === 'confirmed') {
+                            button.classList.add('confirmed');
+                        } else {
+                            button.classList.add('assigned');
+                        }
+                    }
+                });
+            });
+        }
+
+        // Marcar números reservados (sistema antiguo, menor prioridad)
         AppState.reservations.filter(r => r.status === 'active').forEach(reservation => {
             if (!Utils.isReservationExpired(reservation)) {
                 reservation.numbers.forEach(number => {
                     const button = document.getElementById(`number-${number}`);
-                    if (button && !button.classList.contains('sold')) {
+                    if (button && !button.classList.contains('sold') && !button.classList.contains('assigned') && !button.classList.contains('confirmed')) {
                         button.classList.remove('available');
                         button.classList.add('reserved');
                     }

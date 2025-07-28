@@ -19,6 +19,7 @@ rifas-pampero/
 │   ├── app.js              # Punto de entrada y configuración
 │   ├── config.js           # Configuración segura de credenciales
 │   ├── supabase.js         # Conexión y operaciones con Supabase
+│   ├── assignments.js      # Nuevo: Gestión de asignaciones
 │   ├── numbers.js          # Gestión de números y compras
 │   ├── admin.js            # Panel de administración
 │   ├── reports.js          # Generación de reportes
@@ -129,6 +130,19 @@ git push origin main
 
 Sistema desarrollado para **Club Náutico Pampero**.
 Para soporte técnico, contactar al desarrollador.
+
+## 🎯 **NUEVO: Sistema de Asignaciones**
+
+El sistema ahora incluye una nueva funcionalidad de **asignaciones obligatorias**:
+
+- **Asignación directa**: El organizador asigna números específicos a vendedores
+- **Compromiso de pago**: El vendedor se compromete a pagar los números asignados
+- **Edición de titulares**: Posibilidad de cambiar nombres hasta antes del sorteo
+- **Estados visuales**: Números Asignados (🟡) y Confirmados (🔵)
+- **WhatsApp integrado**: Notificaciones automáticas a vendedores
+- **Gestión completa**: Desde asignación hasta confirmación final
+
+**📖 Guía completa:** Ver `ASSIGNMENTS_GUIDE.md`
 
 ---
 
