@@ -295,7 +295,7 @@ window.BackupManager = {
         if (activeReservations.length === 0) {
             validationReport += '<li style="color: blue;">ℹ️ No hay reservas activas</li>';
         } else {
-            validationReport += `<li style="color: green;">✅ ${activeReservations.length} reservas activas</li>';
+            validationReport += `<li style="color: green;">✅ ${activeReservations.length} reservas activas</li>`;
             
             // Verificar reservas expiradas
             const expiredCount = activeReservations.filter(r => Utils.isReservationExpired(r)).length;
