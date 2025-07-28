@@ -622,8 +622,6 @@ window.SupabaseManager = {
         }
         
         try {
-            const originalId = assignment.id;
-            
             const { data, error } = await this.client
                 .from('assignments')
                 .insert([{
@@ -643,19 +641,7 @@ window.SupabaseManager = {
                 
             if (error) throw error;
             
-            // Actualizar con ID de Supabase
-            if (data && data[0]) {
-                assignment.supabaseId = data[0].id;
-                assignment.id = data[0].id;
-                assignment.created_at = data[0].created_at;
-                console.log(`✅ [SUPABASE] Asignación guardada - ID original: ${originalId}, ID Supabase: ${data[0].id}`);
-            }
-            
             console.log('✅ [SUPABASE] Asignación guardada en Supabase');
-            
-            // Actualizar estado local
-            if (!AppState.assignments) AppState.assignments = [];
-            AppState.assignments.push(assignment);
             
             return data;
             
@@ -691,16 +677,7 @@ window.SupabaseManager = {
                 
             if (error) throw error;
             
-            if (data && data[0]) {
-                owner.id = data[0].id;
-                owner.created_at = data[0].created_at;
-            }
-            
             console.log('✅ [SUPABASE] Titular guardado en Supabase');
-            
-            // Actualizar estado local
-            if (!AppState.numberOwners) AppState.numberOwners = [];
-            AppState.numberOwners.push(owner);
             
             return data;
             

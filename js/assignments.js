@@ -478,7 +478,7 @@ const AssignmentsManager = {
             }
             
             const assignment = {
-                id: Utils.generateId(),
+                // No incluir id - Supabase lo generará automáticamente
                 seller_name: sellerName,
                 seller_lastname: sellerLastName,
                 seller_phone: AssignmentValidation.formatPhone(sellerPhone),
@@ -492,29 +492,57 @@ const AssignmentsManager = {
                 notes: notes || null
             };
             
-            // Crear titulares para cada número
-            const numberOwners = numbers.map(number => ({
-                id: Utils.generateId(),
-                assignment_id: assignment.id,
-                number_value: number,
-                name: '',
-                phone: '',
-                email: '',
-                notes: '',
-                created_at: new Date(),
-                edited_at: new Date()
-            }));
-            
-            // Guardar en estado local
-            AppState.assignments.push(assignment);
-            AppState.numberOwners.push(...numberOwners);
+            // Los numberOwners se crearán después de obtener el assignment_id de Supabase
             
             // Guardar en base de datos
             if (window.SupabaseManager && SupabaseManager.isConnected) {
-                await SupabaseManager.saveAssignment(assignment);
+                // Guardar asignación y obtener ID generado
+                const savedAssignment = await SupabaseManager.saveAssignment(assignment);
+                const assignmentId = savedAssignment[0].id;
+                
+                // Crear titulares con el ID de asignación correcto
+                const numberOwners = numbers.map(number => ({
+                    assignment_id: assignmentId,
+                    number_value: number,
+                    owner_name: '',
+                    owner_lastname: '',
+                    owner_phone: '',
+                    owner_email: '',
+                    owner_instagram: '',
+                    membership_area: '',
+                    edited_at: new Date()
+                }));
+                
+                // Guardar titulares
                 await Promise.all(numberOwners.map(owner => SupabaseManager.saveNumberOwner(owner)));
+                
+                // Actualizar assignment con ID de Supabase
+                assignment.id = assignmentId;
+                
+                // Actualizar estado local
+                AppState.assignments.push(assignment);
+                
                 console.log('✅ [ASSIGNMENTS] Asignación guardada en Supabase');
             } else {
+                // Fallback para modo offline - generar ID temporal
+                assignment.id = Utils.generateNumericId();
+                
+                const numberOwners = numbers.map(number => ({
+                    id: Utils.generateNumericId(),
+                    assignment_id: assignment.id,
+                    number_value: number,
+                    owner_name: '',
+                    owner_lastname: '',
+                    owner_phone: '',
+                    owner_email: '',
+                    owner_instagram: '',
+                    membership_area: '',
+                    edited_at: new Date()
+                }));
+                
+                AppState.assignments.push(assignment);
+                AppState.numberOwners.push(...numberOwners);
+                
                 autoSave();
                 console.log('📱 [ASSIGNMENTS] Asignación guardada en localStorage');
             }

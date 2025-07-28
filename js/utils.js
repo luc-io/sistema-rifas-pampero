@@ -189,6 +189,17 @@ window.Utils = {
     generateId: function() {
         return Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     },
+    
+    /**
+     * Genera un ID numérico para compatibilidad con Supabase integer
+     */
+    generateNumericId: function() {
+        // Usar timestamp con algunos dígitos aleatorios para evitar colisiones
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 1000);
+        // Asegurar que no sea demasiado grande para integer (max 2147483647)
+        return parseInt(String(timestamp).slice(-8) + String(random).padStart(3, '0'));
+    },
 
     /**
      * Debounce function para optimizar búsquedas
