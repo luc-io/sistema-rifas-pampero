@@ -396,8 +396,10 @@ window.SupabaseManager = {
                 console.error('Error cargando configuración:', configError);
             } else if (configData) {
                 AppState.raffleConfig = configData.config;
+                // 🔧 CRUCIAL: Asignar el ID 'current' que se usa en Supabase
+                AppState.raffleConfig.id = 'current';
                 AppState.raffleConfig.createdAt = DateUtils.parseDate(configData.config.createdAt);
-                console.log('✅ [SUPABASE] Configuración cargada');
+                console.log('✅ [SUPABASE] Configuración cargada con ID:', AppState.raffleConfig.id);
             }
 
             // Cargar ventas

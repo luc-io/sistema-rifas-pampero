@@ -252,6 +252,7 @@ window.RaffleApp = {
         console.log('✅ [SETUP] Datos anteriores limpiados completamente');
 
         AppState.raffleConfig = {
+            id: 'current', // 🔧 CRUCIAL: Asignar ID para compatibilidad con Supabase
             drawDate: drawDateTime,
             name,
             prize,
@@ -425,8 +426,13 @@ function loadFromLocalStorage() {
     AppState.assignments = Storage.load('assignments', []);
     AppState.numberOwners = Storage.load('numberOwners', []);
     
-    // Migrar fechas
+    // Migrar fechas y asegurar ID
     if (AppState.raffleConfig && AppState.raffleConfig.drawDate) {
+        // 🔧 CRUCIAL: Asegurar que tenga ID para compatibilidad con Supabase
+        if (!AppState.raffleConfig.id) {
+            AppState.raffleConfig.id = 'current';
+            console.log('✅ [MIGRATION] ID "current" asignado a raffleConfig');
+        }
         AppState.raffleConfig.drawDate = DateUtils.parseDate(AppState.raffleConfig.drawDate);
         AppState.raffleConfig.createdAt = DateUtils.parseDate(AppState.raffleConfig.createdAt);
     }
