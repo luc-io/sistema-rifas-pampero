@@ -277,7 +277,7 @@ window.GoogleSheetsManager = {
             ['Total Ventas', '=COUNTA(Ventas!A:A)-1'],
             ['Números Vendidos', '=SUMPRODUCT(Ventas!I:I)'],
             ['Ingresos Totales', '=SUMPRODUCT(Ventas!J:J)'],
-            ['Asignaciones Activas', '=COUNTIF(Asignaciones!G:G,\"assigned\")']
+            ['Asignaciones Activas', '=COUNTIF(Asignaciones!G:G,"assigned")']
         ];
         
         await this.updateRange(spreadsheetId, 'Estadísticas!A1:B5', values);
@@ -295,4 +295,250 @@ window.GoogleSheetsManager = {
             await this.signIn();
         }
         
-        // Limpiar datos existentes (excepto headers)\n        await this.clearRange(this.config.spreadsheetId, 'Ventas!A2:O1000');\n        \n        // Preparar datos de ventas\n        const salesData = AppState.sales.map(sale => [\n            sale.id,\n            Utils.formatDateTime(sale.date),\n            sale.buyer.name,\n            sale.buyer.lastName,\n            sale.buyer.phone,\n            sale.buyer.email || '',\n            sale.buyer.instagram || '',\n            sale.numbers.map(n => Utils.formatNumber(n)).join(', '),\n            sale.numbers.length,\n            sale.total,\n            AppConstants.PAYMENT_METHODS[sale.paymentMethod] || sale.paymentMethod,\n            sale.status,\n            AppConstants.MEMBER_LABELS[sale.buyer.membershipArea] || 'No especificado',\n            sale.buyer.membershipArea || '',\n            sale.buyer.navigationInterest || ''\n        ]);\n        \n        if (salesData.length > 0) {\n            await this.updateRange(\n                this.config.spreadsheetId,\n                `Ventas!A2:O${salesData.length + 1}`,\n                salesData\n            );\n        }\n        \n        console.log('✅ [SHEETS] Ventas sincronizadas');\n    },\n    \n    /**\n     * Sincronizar asignaciones con Google Sheets\n     */\n    syncAssignments: async function() {\n        if (!this.config.spreadsheetId) {\n            throw new Error('No hay hoja de cálculo configurada');\n        }\n        \n        if (!this.config.isSignedIn) {\n            await this.signIn();\n        }\n        \n        // Limpiar datos existentes (excepto headers)\n        await this.clearRange(this.config.spreadsheetId, 'Asignaciones!A2:J1000');\n        \n        // Preparar datos de asignaciones\n        const assignmentsData = AppState.assignments.map(assignment => [\n            assignment.id,\n            assignment.seller_name,\n            assignment.seller_phone,\n            assignment.numbers.map(n => Utils.formatNumber(n)).join(', '),\n            assignment.numbers.length,\n            assignment.total_amount,\n            assignment.status,\n            Utils.formatDateTime(assignment.assigned_at),\n            assignment.payment_deadline ? Utils.formatDateTime(assignment.payment_deadline) : '',\n            assignment.notes || ''\n        ]);\n        \n        if (assignmentsData.length > 0) {\n            await this.updateRange(\n                this.config.spreadsheetId,\n                `Asignaciones!A2:J${assignmentsData.length + 1}`,\n                assignmentsData\n            );\n        }\n        \n        console.log('✅ [SHEETS] Asignaciones sincronizadas');\n    },\n    \n    /**\n     * Sincronizar todos los datos\n     */\n    syncAll: async function() {\n        try {\n            Utils.showNotification('Sincronizando con Google Sheets...', 'info');\n            \n            await this.syncSales();\n            await this.syncAssignments();\n            \n            Utils.showNotification('Datos sincronizados exitosamente', 'success');\n        } catch (error) {\n            console.error('❌ [SHEETS] Error sincronizando:', error);\n            Utils.showNotification('Error sincronizando con Google Sheets', 'error');\n            throw error;\n        }\n    },\n    \n    /**\n     * Actualizar rango en Google Sheets\n     */\n    updateRange: async function(spreadsheetId, range, values) {\n        const response = await gapi.client.sheets.spreadsheets.values.update({\n            spreadsheetId: spreadsheetId,\n            range: range,\n            valueInputOption: 'USER_ENTERED',\n            resource: {\n                values: values\n            }\n        });\n        \n        return response;\n    },\n    \n    /**\n     * Limpiar rango en Google Sheets\n     */\n    clearRange: async function(spreadsheetId, range) {\n        const response = await gapi.client.sheets.spreadsheets.values.clear({\n            spreadsheetId: spreadsheetId,\n            range: range\n        });\n        \n        return response;\n    },\n    \n    /**\n     * Mostrar modal de configuración\n     */\n    showConfigModal: function() {\n        const modalHtml = `\n            <div id=\"googleSheetsConfigModal\" class=\"modal\" style=\"display: block;\">\n                <div class=\"modal-content\">\n                    <div class=\"modal-header\">\n                        <h3>📊 Configurar Google Sheets</h3>\n                        <span class=\"close-btn\" onclick=\"GoogleSheetsManager.closeConfigModal()\">&times;</span>\n                    </div>\n                    <div class=\"modal-body\">\n                        <div style=\"background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;\">\n                            <h4>🔧 Instrucciones de Configuración</h4>\n                            <ol>\n                                <li>Ve a la <a href=\"https://console.cloud.google.com/\" target=\"_blank\">Google Cloud Console</a></li>\n                                <li>Crea un nuevo proyecto o selecciona uno existente</li>\n                                <li>Habilita la API de Google Sheets</li>\n                                <li>Crea credenciales (API Key y OAuth 2.0 Client ID)</li>\n                                <li>Configura el dominio autorizado</li>\n                            </ol>\n                        </div>\n                        \n                        <div class=\"form-group\">\n                            <label for=\"googleApiKey\">API Key:</label>\n                            <input type=\"text\" id=\"googleApiKey\" placeholder=\"Tu Google API Key\" value=\"${this.config.apiKey || ''}\">\n                        </div>\n                        \n                        <div class=\"form-group\">\n                            <label for=\"googleClientId\">Client ID:</label>\n                            <input type=\"text\" id=\"googleClientId\" placeholder=\"Tu Google OAuth Client ID\" value=\"${this.config.clientId || ''}\">\n                        </div>\n                        \n                        <div class=\"form-group\">\n                            <label for=\"existingSpreadsheetId\">ID de Hoja Existente (opcional):</label>\n                            <input type=\"text\" id=\"existingSpreadsheetId\" placeholder=\"ID de Google Sheets existente\" value=\"${this.config.spreadsheetId || ''}\">\n                            <small style=\"color: #6c757d;\">Deja vacío para crear una nueva hoja automáticamente</small>\n                        </div>\n                    </div>\n                    <div class=\"modal-footer\">\n                        <button class=\"btn btn-secondary\" onclick=\"GoogleSheetsManager.closeConfigModal()\">Cancelar</button>\n                        <button class=\"btn btn-primary\" onclick=\"GoogleSheetsManager.saveConfig()\">💾 Guardar Configuración</button>\n                        <button class=\"btn btn-success\" onclick=\"GoogleSheetsManager.testConnection()\" style=\"background: #28a745;\">🔍 Probar Conexión</button>\n                    </div>\n                </div>\n            </div>\n        `;\n        \n        document.body.insertAdjacentHTML('beforeend', modalHtml);\n    },\n    \n    /**\n     * Cerrar modal de configuración\n     */\n    closeConfigModal: function() {\n        const modal = document.getElementById('googleSheetsConfigModal');\n        if (modal) {\n            modal.remove();\n        }\n    },\n    \n    /**\n     * Guardar configuración\n     */\n    saveConfig: function() {\n        const apiKey = document.getElementById('googleApiKey').value.trim();\n        const clientId = document.getElementById('googleClientId').value.trim();\n        const spreadsheetId = document.getElementById('existingSpreadsheetId').value.trim();\n        \n        if (!apiKey || !clientId) {\n            Utils.showNotification('Por favor completa API Key y Client ID', 'error');\n            return;\n        }\n        \n        this.setCredentials(apiKey, clientId, spreadsheetId);\n        this.config.isInitialized = false; // Forzar reinicialización\n        \n        Utils.showNotification('Configuración guardada exitosamente', 'success');\n        this.closeConfigModal();\n    },\n    \n    /**\n     * Probar conexión\n     */\n    testConnection: async function() {\n        try {\n            const apiKey = document.getElementById('googleApiKey').value.trim();\n            const clientId = document.getElementById('googleClientId').value.trim();\n            \n            if (!apiKey || !clientId) {\n                Utils.showNotification('Completa las credenciales primero', 'error');\n                return;\n            }\n            \n            // Configurar temporalmente\n            this.config.apiKey = apiKey;\n            this.config.clientId = clientId;\n            this.config.isInitialized = false;\n            \n            const initialized = await this.init();\n            if (initialized) {\n                Utils.showNotification('Conexión exitosa! 🎉', 'success');\n            } else {\n                Utils.showNotification('Error en la conexión', 'error');\n            }\n        } catch (error) {\n            console.error('❌ [SHEETS] Error probando conexión:', error);\n            Utils.showNotification('Error probando conexión: ' + error.message, 'error');\n        }\n    },\n    \n    /**\n     * Obtener estado de configuración\n     */\n    getStatus: function() {\n        return {\n            configured: !!(this.config.apiKey && this.config.clientId),\n            initialized: this.config.isInitialized,\n            signedIn: this.config.isSignedIn,\n            hasSpreadsheet: !!this.config.spreadsheetId\n        };\n    }\n};\n\n// Cargar credenciales al inicializar\nGoogleSheetsManager.loadCredentials();\n\nconsole.log('✅ Google Sheets Manager cargado correctamente');\n
+        // Limpiar datos existentes (excepto headers)
+        await this.clearRange(this.config.spreadsheetId, 'Ventas!A2:O1000');
+        
+        // Preparar datos de ventas
+        const salesData = AppState.sales.map(sale => [
+            sale.id,
+            Utils.formatDateTime(sale.date),
+            sale.buyer.name,
+            sale.buyer.lastName,
+            sale.buyer.phone,
+            sale.buyer.email || '',
+            sale.buyer.instagram || '',
+            sale.numbers.map(n => Utils.formatNumber(n)).join(', '),
+            sale.numbers.length,
+            sale.total,
+            AppConstants.PAYMENT_METHODS[sale.paymentMethod] || sale.paymentMethod,
+            sale.status,
+            AppConstants.MEMBER_LABELS[sale.buyer.membershipArea] || 'No especificado',
+            sale.buyer.membershipArea || '',
+            sale.buyer.navigationInterest || ''
+        ]);
+        
+        if (salesData.length > 0) {
+            await this.updateRange(
+                this.config.spreadsheetId,
+                `Ventas!A2:O${salesData.length + 1}`,
+                salesData
+            );
+        }
+        
+        console.log('✅ [SHEETS] Ventas sincronizadas');
+    },
+    
+    /**
+     * Sincronizar asignaciones con Google Sheets
+     */
+    syncAssignments: async function() {
+        if (!this.config.spreadsheetId) {
+            throw new Error('No hay hoja de cálculo configurada');
+        }
+        
+        if (!this.config.isSignedIn) {
+            await this.signIn();
+        }
+        
+        // Limpiar datos existentes (excepto headers)
+        await this.clearRange(this.config.spreadsheetId, 'Asignaciones!A2:J1000');
+        
+        // Preparar datos de asignaciones
+        const assignmentsData = AppState.assignments.map(assignment => [
+            assignment.id,
+            assignment.seller_name,
+            assignment.seller_phone,
+            assignment.numbers.map(n => Utils.formatNumber(n)).join(', '),
+            assignment.numbers.length,
+            assignment.total_amount,
+            assignment.status,
+            Utils.formatDateTime(assignment.assigned_at),
+            assignment.payment_deadline ? Utils.formatDateTime(assignment.payment_deadline) : '',
+            assignment.notes || ''
+        ]);
+        
+        if (assignmentsData.length > 0) {
+            await this.updateRange(
+                this.config.spreadsheetId,
+                `Asignaciones!A2:J${assignmentsData.length + 1}`,
+                assignmentsData
+            );
+        }
+        
+        console.log('✅ [SHEETS] Asignaciones sincronizadas');
+    },
+    
+    /**
+     * Sincronizar todos los datos
+     */
+    syncAll: async function() {
+        try {
+            Utils.showNotification('Sincronizando con Google Sheets...', 'info');
+            
+            await this.syncSales();
+            await this.syncAssignments();
+            
+            Utils.showNotification('Datos sincronizados exitosamente', 'success');
+        } catch (error) {
+            console.error('❌ [SHEETS] Error sincronizando:', error);
+            Utils.showNotification('Error sincronizando con Google Sheets', 'error');
+            throw error;
+        }
+    },
+    
+    /**
+     * Actualizar rango en Google Sheets
+     */
+    updateRange: async function(spreadsheetId, range, values) {
+        const response = await gapi.client.sheets.spreadsheets.values.update({
+            spreadsheetId: spreadsheetId,
+            range: range,
+            valueInputOption: 'USER_ENTERED',
+            resource: {
+                values: values
+            }
+        });
+        
+        return response;
+    },
+    
+    /**
+     * Limpiar rango en Google Sheets
+     */
+    clearRange: async function(spreadsheetId, range) {
+        const response = await gapi.client.sheets.spreadsheets.values.clear({
+            spreadsheetId: spreadsheetId,
+            range: range
+        });
+        
+        return response;
+    },
+    
+    /**
+     * Mostrar modal de configuración
+     */
+    showConfigModal: function() {
+        const modalHtml = `
+            <div id="googleSheetsConfigModal" class="modal" style="display: block;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>📊 Configurar Google Sheets</h3>
+                        <span class="close-btn" onclick="GoogleSheetsManager.closeConfigModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4>🔧 Instrucciones de Configuración</h4>
+                            <ol>
+                                <li>Ve a la <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+                                <li>Crea un nuevo proyecto o selecciona uno existente</li>
+                                <li>Habilita la API de Google Sheets</li>
+                                <li>Crea credenciales (API Key y OAuth 2.0 Client ID)</li>
+                                <li>Configura el dominio autorizado</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="googleApiKey">API Key:</label>
+                            <input type="text" id="googleApiKey" placeholder="Tu Google API Key" value="${this.config.apiKey || ''}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="googleClientId">Client ID:</label>
+                            <input type="text" id="googleClientId" placeholder="Tu Google OAuth Client ID" value="${this.config.clientId || ''}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="existingSpreadsheetId">ID de Hoja Existente (opcional):</label>
+                            <input type="text" id="existingSpreadsheetId" placeholder="ID de Google Sheets existente" value="${this.config.spreadsheetId || ''}">
+                            <small style="color: #6c757d;">Deja vacío para crear una nueva hoja automáticamente</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="GoogleSheetsManager.closeConfigModal()">Cancelar</button>
+                        <button class="btn btn-primary" onclick="GoogleSheetsManager.saveConfig()">💾 Guardar Configuración</button>
+                        <button class="btn btn-success" onclick="GoogleSheetsManager.testConnection()" style="background: #28a745;">🔍 Probar Conexión</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+    
+    /**
+     * Cerrar modal de configuración
+     */
+    closeConfigModal: function() {
+        const modal = document.getElementById('googleSheetsConfigModal');
+        if (modal) {
+            modal.remove();
+        }
+    },
+    
+    /**
+     * Guardar configuración
+     */
+    saveConfig: function() {
+        const apiKey = document.getElementById('googleApiKey').value.trim();
+        const clientId = document.getElementById('googleClientId').value.trim();
+        const spreadsheetId = document.getElementById('existingSpreadsheetId').value.trim();
+        
+        if (!apiKey || !clientId) {
+            Utils.showNotification('Por favor completa API Key y Client ID', 'error');
+            return;
+        }
+        
+        this.setCredentials(apiKey, clientId, spreadsheetId);
+        this.config.isInitialized = false; // Forzar reinicialización
+        
+        Utils.showNotification('Configuración guardada exitosamente', 'success');
+        this.closeConfigModal();
+    },
+    
+    /**
+     * Probar conexión
+     */
+    testConnection: async function() {
+        try {
+            const apiKey = document.getElementById('googleApiKey').value.trim();
+            const clientId = document.getElementById('googleClientId').value.trim();
+            
+            if (!apiKey || !clientId) {
+                Utils.showNotification('Completa las credenciales primero', 'error');
+                return;
+            }
+            
+            // Configurar temporalmente
+            this.config.apiKey = apiKey;
+            this.config.clientId = clientId;
+            this.config.isInitialized = false;
+            
+            const initialized = await this.init();
+            if (initialized) {
+                Utils.showNotification('Conexión exitosa! 🎉', 'success');
+            } else {
+                Utils.showNotification('Error en la conexión', 'error');
+            }
+        } catch (error) {
+            console.error('❌ [SHEETS] Error probando conexión:', error);
+            Utils.showNotification('Error probando conexión: ' + error.message, 'error');
+        }
+    },
+    
+    /**
+     * Obtener estado de configuración
+     */
+    getStatus: function() {
+        return {
+            configured: !!(this.config.apiKey && this.config.clientId),
+            initialized: this.config.isInitialized,
+            signedIn: this.config.isSignedIn,
+            hasSpreadsheet: !!this.config.spreadsheetId
+        };
+    }
+};
+
+// Cargar credenciales al inicializar
+GoogleSheetsManager.loadCredentials();
+
+console.log('✅ Google Sheets Manager cargado correctamente');
