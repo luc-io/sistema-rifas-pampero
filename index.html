@@ -41,6 +41,18 @@
         <!-- Tab: Configuración -->
         <div class="tab-content active" id="setup">
             <div class="config-form">
+                <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                    <h4 style="color: #856404; margin-bottom: 10px;">🛡️ Configuración de Nueva Rifa</h4>
+                    <p style="color: #856404; margin: 0; font-size: 14px;">
+                        <strong>⚠️ Importante:</strong> El sistema maneja UNA rifa activa a la vez. 
+                        Si ya tienes ventas registradas, se archivarán automáticamente antes de crear la nueva rifa.
+                    </p>
+                    <div style="margin-top: 10px;">
+                        <button type="button" class="btn btn-secondary" onclick="AdminManager && AdminManager.exportData ? AdminManager.exportData() : Utils.showNotification('Configura una rifa primero', 'warning')" style="font-size: 12px; padding: 5px 10px; background: #6c757d;">
+                            📄 Exportar Datos Actuales
+                        </button>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="drawDate">Fecha del Sorteo *</label>
                     <input type="datetime-local" id="drawDate" required>
