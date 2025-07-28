@@ -2,229 +2,134 @@
 
 Sistema completo de administración de rifas desarrollado para el Club Náutico Pampero. Permite gestionar ventas, reservas, compradores y generar reportes detallados.
 
-## 📁 Estructura del Proyecto
+## 🚀 **Deploy en Vivo**
+**URL:** https://orca-app-3i8d3.ondigitalocean.app/
+
+## 📁 **Estructura del Proyecto (Organizada)**
 
 ```
-pampero/
-├── index.html              # Archivo principal de la aplicación
-├── admin-mejorado.html     # Versión anterior (monolítica) - DEPRECIADO
-├── admin.html              # Versión básica anterior
-├── css/
-│   └── styles.css          # Estilos completos de la aplicación
-├── js/
-│   ├── utils.js            # Utilidades compartidas y estado global
-│   ├── app.js              # Punto de entrada y configuración principal
-│   ├── numbers.js          # Gestión de números, selección y compras
-│   ├── admin.js            # Panel de administración y estadísticas
-│   ├── reports.js          # Generación de reportes detallados
-│   └── backup.js           # Gestión de copias de seguridad
-└── data/                   # Directorio para archivos de datos (vacío)
+rifas-pampero/
+├── index.html              # 🎯 Aplicación principal
+├── package.json            # 📦 Configuración Node.js
+├── inject-env.js           # 🔧 Script de build para variables de entorno
+├── .env.example            # 🔑 Template de variables de entorno
+├── css/                    # 🎨 Estilos de la aplicación
+│   └── styles.css
+├── js/                     # ⚡ Lógica JavaScript (modular)
+│   ├── app.js              # Punto de entrada y configuración
+│   ├── config.js           # Configuración segura de credenciales
+│   ├── supabase.js         # Conexión y operaciones con Supabase
+│   ├── numbers.js          # Gestión de números y compras
+│   ├── admin.js            # Panel de administración
+│   ├── reports.js          # Generación de reportes
+│   └── utilities.js        # Utilidades y funciones compartidas
+├── .github/                # 🚀 CI/CD workflows
+│   └── workflows/
+├── .do/                    # 🌊 Configuración Digital Ocean App Platform
+│   └── app.yaml
+├── docs/                   # 📚 Documentación técnica (16 archivos)
+├── backups/                # 🗑️ Archivos de versiones anteriores
+├── debug/                  # 🐛 Herramientas de debugging
+└── scripts/                # 🔧 Scripts de utilidad
 ```
 
-## 🚀 Características Principales
+## 🚀 **Características Principales**
 
-### ⚙️ Configuración de Rifas
-- Configuración completa de rifas (nombre, premio, cantidad de números, precio)
-- Gestión de organización y datos de contacto
-- Configuración de tiempo límite para reservas
+### ⚙️ **Configuración Intuitiva**
+- Setup completo de rifas en interfaz gráfica
+- Configuración segura de credenciales Supabase
+- Validaciones en tiempo real
 
-### 🔢 Gestión de Números
-- Grid visual interactivo de números disponibles
-- Sistema de selección múltiple
-- Estados: Disponible, Seleccionado, Reservado, Vendido
-- Reservas temporales con expiración automática
+### 🔢 **Gestión Visual de Números**
+- Grid interactivo responsive (móvil-friendly)
+- Estados visuales: Disponible, Seleccionado, Reservado, Vendido
+- Selección múltiple intuitiva
+- Sistema de reservas con expiración automática
 
-### 💰 Procesamiento de Ventas
-- Registro completo de compradores (datos personales, intereses, membresía)
-- Múltiples métodos de pago (efectivo, transferencia)
+### 💰 **Procesamiento de Ventas**
+- Múltiples métodos de pago (efectivo/transferencia)
 - Autocompletado de compradores recurrentes
-- Generación automática de mensajes de WhatsApp
+- Integración automática con WhatsApp
+- Validación completa de datos
 
-### 📊 Panel de Administración
+### 📊 **Panel de Administración**
 - Estadísticas en tiempo real
 - Gestión de reservas activas
-- Lista completa de ventas con filtros
-- Acciones administrativas (confirmar pagos, eliminar ventas)
+- Búsqueda y filtros avanzados
+- Acciones administrativas (confirmar/eliminar)
 
-### 📈 Reportes Detallados
-- Reporte general con métricas clave
-- Análisis de compradores (top 10, consolidación)
-- Estadísticas de números vendidos
-- Análisis de interés en navegación
-- Reporte de membresía del club
+### 📈 **Reportes Detallados**
+- Análisis de ventas y compradores
+- Estadísticas de membresía del club
 - Exportación a CSV
+- Filtros temporales
 
-### 💾 Sistema de Backup
-- Backup completo en formato JSON
-- Importación y restauración de datos
-- Validación de integridad de datos
-- Exportación selectiva (solo configuración, solo ventas)
+### 💾 **Persistencia Dual**
+- **Supabase** (PostgreSQL en la nube) como fuente principal
+- **localStorage** como fallback automático
+- Sincronización transparente entre ambos
 
-## 🛠️ Tecnologías Utilizadas
+## 🛠️ **Tecnologías**
 
-- **HTML5**: Estructura semántica
-- **CSS3**: Diseño responsive con Grid y Flexbox
-- **JavaScript ES6+**: Funcionalidad modular
-- **LocalStorage API**: Persistencia de datos local (fallback)
-- **Firebase/Supabase**: Bases de datos en la nube (opcional)
-- **Web APIs**: File API para import/export
-- **PWA Ready**: Funciona offline y es instalable
+- **Frontend:** HTML5, CSS3, JavaScript ES6+ (vanilla)
+- **Base de datos:** Supabase (PostgreSQL) + localStorage fallback
+- **Deploy:** Digital Ocean App Platform (static site)
+- **Build:** Node.js script para inyección de variables de entorno
 
-## 🚀 Despliegue y Configuración
+## ⚡ **Deploy Rápido**
 
-### 📁 Versiones Disponibles:
-- **`index.html`** - Versión local (localStorage)
-- **`index-firebase.html`** - Con Firebase (Google)
-- **`index-supabase.html`** - Con Supabase (PostgreSQL)
-
-### 🌊 Subir a Digital Ocean:
-1. **App Platform** (recomendado): Conectar GitHub, deploy automático
-2. **Droplet + Nginx**: Control total del servidor
-3. **Spaces**: Storage estático con CDN
-
-### 💾 Opciones de Base de Datos:
-- **Local**: Solo localStorage (desarrollo/pruebas)
-- **Firebase**: Fácil, escalable, tiempo real
-- **Supabase**: PostgreSQL, open source, potente
-- **JSONBin**: API REST simple para prototipos
-
-## 🎯 Uso de la Aplicación
-
-### Configuración Inicial
-1. Elegir versión de archivo (local/Firebase/Supabase)
-2. Abrir en navegador web
-3. Ir a la pestaña "Configurar"
-4. Completar todos los campos requeridos
-5. Hacer clic en "Crear Rifa"
-
-### Gestión de Ventas
-1. Ir a la pestaña "Números"
-2. Seleccionar números disponibles
-3. Elegir "Comprar Ahora" o "Reservar"
-4. Completar datos del comprador
-5. Confirmar la transacción
-
-### Administración
-1. Ir a la pestaña "Administrar"
-2. Ver estadísticas en tiempo real
-3. Gestionar reservas activas
-4. Buscar y filtrar ventas
-5. Exportar datos
-
-### Reportes
-1. Ir a la pestaña "Reportes"
-2. Aplicar filtros según necesidad
-3. Ver análisis detallados
-4. Exportar reportes específicos
-
-### Backup y Seguridad
-1. Ir a la pestaña "Backup"
-2. Realizar backups regulares
-3. Validar integridad de datos
-4. Restaurar desde backup si es necesario
-
-## 🔧 Arquitectura Modular
-
-### Estado Global (`AppState`)
-```javascript
-{
-    raffleConfig: null,      // Configuración de la rifa
-    selectedNumbers: [],     // Números seleccionados actualmente
-    sales: [],              // Array de ventas realizadas
-    reservations: [],       // Array de reservas activas/expiradas
-    currentAction: 'buy',   // Acción actual ('buy' o 'reserve')
-    selectedBuyer: null     // Comprador seleccionado del autocompletado
-}
+### **1. Commit los cambios:**
+```bash
+git add .
+git commit -m "Proyecto limpio y organizado"
+git push origin main
 ```
 
-### Módulos Principales
+### **2. Digital Ocean hace redeploy automático** 🎉
 
-#### `Utils` - Utilidades Compartidas
-- Validaciones de datos
-- Formateo de números y fechas
-- Gestión de notificaciones
-- Manejo de almacenamiento local
+### **3. Configurar primera rifa en la interfaz**
 
-#### `RaffleApp` - Aplicación Principal
-- Configuración inicial de rifas
-- Inicialización de módulos
-- Gestión del ciclo de vida
+## 🎯 **Uso de la Aplicación**
 
-#### `NumbersManager` - Gestión de Números
-- Creación del grid de números
-- Manejo de selecciones
-- Procesamiento de compras y reservas
-- Generación de mensajes de WhatsApp
+1. **Abrir:** https://orca-app-3i8d3.ondigitalocean.app/
+2. **Configurar:** Completar datos en pestaña "Configurar"
+3. **Vender:** Seleccionar números en pestaña "Números"
+4. **Administrar:** Ver estadísticas en "Administrar"
+5. **Reportes:** Exportar datos en "Reportes"
 
-#### `AdminManager` - Panel de Administración
-- Actualización de estadísticas
-- Gestión de reservas
-- Lista de ventas con filtros
-- Acciones administrativas
+## 📱 **Optimización Móvil**
 
-#### `ReportsManager` - Generación de Reportes
-- Reportes con filtros temporales
-- Análisis estadístico
-- Exportación de datos
+- Diseño responsive mobile-first
+- Grid de números adaptable al tamaño de pantalla
+- Navegación táctil optimizada
+- Formularios adaptados para móviles
 
-#### `BackupManager` - Gestión de Backups
-- Exportación/importación completa
-- Validación de datos
-- Limpieza de datos
+## 🔒 **Seguridad**
 
-## 📱 Responsive Design
+- Configuración segura de credenciales Supabase
+- Validación completa de entrada de datos
+- Manejo seguro de transacciones
+- No exposición de claves sensibles en el código
 
-La aplicación está optimizada para dispositivos móviles y tablets:
-- Grid de números adaptable
-- Navegación por pestañas táctil
-- Formularios optimizados para móviles
-- Botones de tamaño adecuado para touch
+## 🚀 **Rendimiento**
 
-## 🔒 Seguridad y Persistencia
-
-- Todos los datos se almacenan localmente en el navegador
-- No hay transmisión de datos sensibles
-- Validación de entrada en todos los formularios
-- Confirmaciones para acciones destructivas
-- Sistema de backup para prevenir pérdida de datos
-
-## 🎨 Características de UX
-
-- Interfaz intuitiva con iconos descriptivos
-- Notificaciones visuales para acciones importantes
-- Estados visuales claros para números (colores y símbolos)
-- Autocompletado para compradores recurrentes
-- Validación en tiempo real de formularios
-
-## 🚀 Rendimiento
-
-- Carga asíncrona de módulos
+- Carga modular de JavaScript
 - Actualización eficiente del DOM
+- Verificación optimizada de reservas
 - Debounce en búsquedas
-- Verificación periódica optimizada de reservas expiradas
 
-## 🔄 Migración desde Versión Anterior
+## 📖 **Documentación Adicional**
 
-Para migrar desde `admin-mejorado.html`:
-1. Exportar backup desde la versión anterior
-2. Abrir `index.html` (nueva versión modular)
-3. Importar el backup desde la pestaña "Backup"
-4. Verificar que todos los datos se migraron correctamente
+- **Deploy:** Ver `docs/DEPLOY.md`
+- **Configuración:** Ver `docs/SETUP_RAPIDO.md`
+- **Troubleshooting:** Ver `docs/BUILD_FIX.md`
+- **Changelog:** Ver `docs/CHANGELOG.md`
 
-## 🤝 Contribuciones
+## 🤝 **Soporte**
 
-Para contribuir al proyecto:
-1. Mantener la estructura modular
-2. Seguir las convenciones de nomenclatura
-3. Documentar nuevas funciones
-4. Probar en múltiples navegadores
-5. Mantener compatibilidad con versiones anteriores
-
-## 📞 Soporte
-
-Sistema desarrollado para Club Náutico Pampero.
+Sistema desarrollado para **Club Náutico Pampero**.
 Para soporte técnico, contactar al desarrollador.
 
 ---
 
-✨ **¡Gracias por usar el Sistema de Rifas Pampero!** ✨
+✨ **Sistema profesional, seguro y listo para producción** ✨
