@@ -491,6 +491,11 @@ function initializeInterfaces() {
             AdminManager.createInterface();
         }
         
+        // Inicializar reportes
+        if (typeof ReportsManager !== 'undefined') {
+            ReportsManager.updateReports();
+        }
+        
         // Inicializar utilidades
         if (typeof UtilitiesManager !== 'undefined') {
             UtilitiesManager.init();

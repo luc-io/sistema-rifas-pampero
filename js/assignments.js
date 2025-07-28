@@ -4,6 +4,132 @@
 const AssignmentsManager = {
     
     /**
+     * Crear interfaz de asignaciones
+     */
+    createInterface: function() {
+        if (!AppState.raffleConfig) {
+            document.getElementById('assignmentsContent').innerHTML = `
+                <div class="setup-needed">
+                    <h3>🎯 Configura tu rifa primero</h3>
+                    <p>Ve a la pestaña "Configurar" para crear tu rifa</p>
+                </div>
+            `;
+            return;
+        }
+
+        const container = document.getElementById('assignmentsContent');
+        container.innerHTML = `
+            <div class="assignments-header">
+                <h3>📋 Gestión de Asignaciones</h3>
+                <div class="search-box-container">
+                    <input type="text" id="assignmentSearchBox" class="search-box" placeholder="Buscar por vendedor o teléfono..." onkeyup="AssignmentsManager.filterAssignments()">
+                </div>
+            </div>
+            
+            <div class="assignments-stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalAssignments">0</div>
+                    <div class="stat-label">Total Asignaciones</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="paidAssignments">0</div>
+                    <div class="stat-label">Pagadas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="pendingAssignments">0</div>
+                    <div class="stat-label">Pendientes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="expiredAssignments">0</div>
+                    <div class="stat-label">Vencidas</div>
+                </div>
+            </div>
+            
+            <div id="assignmentsList" class="assignments-list">
+                <p style="text-align: center; color: #6c757d; padding: 20px;">No hay asignaciones registradas aún</p>
+            </div>
+        `;
+        
+        this.updateAssignmentsList();
+    },
+    
+    /**
+     * Actualizar lista de asignaciones
+     */
+    updateAssignmentsList: function() {
+        if (!AppState.assignments || AppState.assignments.length === 0) {
+            document.getElementById('assignmentsList').innerHTML = `
+                <p style="text-align: center; color: #6c757d; padding: 20px;">No hay asignaciones registradas aún</p>
+            `;
+            this.updateAssignmentsStats();
+            return;
+        }
+        
+        const container = document.getElementById('assignmentsList');
+        container.innerHTML = AppState.assignments.map(assignment => `
+            <div class="assignment-card" data-assignment-id="${assignment.id}">
+                <div class="assignment-header">
+                    <div class="assignment-seller">
+                        <strong>${assignment.seller_name}</strong>
+                        <div class="seller-phone">${assignment.seller_phone}</div>
+                    </div>
+                    <div class="assignment-status status-${assignment.status}">
+                        ${this.getStatusText(assignment.status)}
+                    </div>
+                </div>
+                
+                <div class="assignment-details">
+                    <div class="assignment-numbers">
+                        <strong>Números:</strong> ${assignment.numbers.map(n => Utils.formatNumber(n)).join(', ')}
+                    </div>
+                    <div class="assignment-amount">
+                        <strong>Total:</strong> ${Utils.formatPrice(assignment.total_amount)}
+                    </div>
+                    ${assignment.payment_deadline ? `
+                        <div class="assignment-deadline">
+                            <strong>Vence:</strong> ${Utils.formatDateTime(assignment.payment_deadline)}
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="assignment-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="AssignmentsManager.showOwnersEditModal('${assignment.id}')">
+                        ✏️ Editar Titulares
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="AssignmentsManager.sendReminder('${assignment.id}')">
+                        📱 Recordatorio
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        this.updateAssignmentsStats();
+    },
+    
+    /**
+     * Actualizar estadísticas de asignaciones
+     */
+    updateAssignmentsStats: function() {
+        if (!AppState.assignments) {
+            document.getElementById('totalAssignments').textContent = '0';
+            document.getElementById('paidAssignments').textContent = '0';
+            document.getElementById('pendingAssignments').textContent = '0';
+            document.getElementById('expiredAssignments').textContent = '0';
+            return;
+        }
+        
+        const total = AppState.assignments.length;
+        const paid = AppState.assignments.filter(a => a.status === 'paid').length;
+        const pending = AppState.assignments.filter(a => a.status === 'assigned').length;
+        const expired = AppState.assignments.filter(a => a.status === 'expired').length;
+        
+        document.getElementById('totalAssignments').textContent = total;
+        document.getElementById('paidAssignments').textContent = paid;
+        document.getElementById('pendingAssignments').textContent = pending;
+        document.getElementById('expiredAssignments').textContent = expired;
+    },
+    
+    /**
      * Mostrar modal de edicion de titulares
      */
     showOwnersEditModal: function(assignmentId) {

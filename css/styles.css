@@ -1103,7 +1103,150 @@ body {
     border-color: #4CAF50;
 }
 
+/* Estilos adicionales para interfaz de asignaciones */
+.assignments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.assignments-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.search-box-container {
+    flex: 1;
+    max-width: 400px;
+}
+
+.assignments-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.assignments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.assignment-card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background: white;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+
+.assignment-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.assignment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.assignment-seller {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.seller-phone {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.assignment-status {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-assigned {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-paid {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-expired {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-cancelled {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+.assignment-details {
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.assignment-numbers, .assignment-amount, .assignment-deadline {
+    font-size: 14px;
+}
+
+.assignment-actions {
+    padding: 15px;
+    background: #f8f9fa;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid #e9ecef;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+
+.btn-info {
+    background: #17a2b8;
+    color: white;
+    border: none;
+}
+
+.btn-info:hover {
+    background: #138496;
+}
+
 /* Responsive para asignaciones */
+@media (max-width: 768px) {
+    .assignments-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-box-container {
+        max-width: none;
+    }
+    
+    .assignments-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 480px) {
     .assignment-header {
         flex-direction: column;
@@ -1113,6 +1256,7 @@ body {
     
     .assignment-actions {
         justify-content: center;
+        flex-wrap: wrap;
     }
     
     .owner-edit-row {
@@ -1123,5 +1267,9 @@ body {
     
     .owner-fields {
         flex-direction: column;
+    }
+    
+    .assignments-stats {
+        grid-template-columns: 1fr;
     }
 }
