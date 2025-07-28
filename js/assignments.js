@@ -1,189 +1,3 @@
-/**
- * GESTIÓN DE ASIGNACIONES - Sistema de Rifas Pampero
- * Maneja la asignación obligatoria de números a vendedores
- */
-
-window.AssignmentsManager = {
-    /**
-     * Crear interfaz de asignaciones
-     */
-    createInterface: function() {
-        if (!AppState.raffleConfig) return;
-
-        const container = document.getElementById('assignmentsContent');
-        container.innerHTML = `
-            <div class="assignment-section">
-                <h3>🎯 Crear Nueva Asignación</h3>
-                <div class="assignment-form">
-                    <div class="form-group">
-                        <label for="sellerName">Nombre del Vendedor *</label>
-                        <input type="text" id="sellerName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="sellerLastname">Apellido *</label>
-                        <input type="text" id="sellerLastname" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="sellerPhone">Teléfono *</label>
-                        <input type="tel" id="sellerPhone" required placeholder="+54 341 123-4567">
-                    </div>
-                    <div class="form-group">
-                        <label for="sellerEmail">Email (opcional)</label>
-                        <input type="email" id="sellerEmail">
-                    </div>
-                    <div class="form-group">
-                        <label for="assignmentNumbers">Números a Asignar *</label>
-                        <input type="text" id="assignmentNumbers" placeholder="001-010 o 001,005,020,025" required>
-                        <small>Formato: 001-010 (rango) o 001,005,020 (específicos)</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="paymentDeadline">Plazo de Pago</label>
-                        <input type="datetime-local" id="paymentDeadline">
-                        <small>Fecha límite para que el vendedor confirme el pago</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="assignmentNotes">Notas (opcional)</label>
-                        <textarea id="assignmentNotes" rows="2" placeholder="Observaciones sobre esta asignación"></textarea>
-                    </div>
-                    <div class="assignment-summary" id="assignmentSummary" style="display: none;">
-                        <h4>📋 Resumen de Asignación</h4>
-                        <div id="summaryNumbers"></div>
-                        <div id="summaryTotal"></div>
-                    </div>
-                    <button class="btn" onclick="AssignmentsManager.createAssignment()">📤 Asignar y Notificar</button>
-                </div>
-            </div>
-
-            <div class="assignment-section">
-                <h3>📊 Asignaciones Activas</h3>
-                <div id="assignmentsList" class="assignments-list">
-                    <p style="text-align: center; color: #6c757d; padding: 20px;">No hay asignaciones registradas</p>
-                </div>
-            </div>
-
-            <div class="assignment-section">
-                <h3>🔍 Buscar Asignación</h3>
-                <input type="text" class="search-box" id="assignmentSearchBox" 
-                       placeholder="Buscar por nombre o teléfono del vendedor..." 
-                       onkeyup="AssignmentsManager.filterAssignments()">
-            </div>
-        `;
-
-        // Agregar eventos
-        document.getElementById('assignmentNumbers').addEventListener('input', this.updateAssignmentSummary.bind(this));
-        
-        // Cargar asignaciones existentes
-        this.loadAssignments();
-    },
-
-    /**
-     * Actualizar resumen de asignación mientras se escribe
-     */
-    updateAssignmentSummary: function() {
-        const numbersInput = document.getElementById('assignmentNumbers').value.trim();
-        const summary = document.getElementById('assignmentSummary');
-        const summaryNumbers = document.getElementById('summaryNumbers');
-        const summaryTotal = document.getElementById('summaryTotal');
-
-        if (!numbersInput) {
-            summary.style.display = 'none';
-            return;
-        }
-
-        try {
-            const numbers = this.parseNumberInput(numbersInput);
-            if (numbers.length > 0) {
-                summary.style.display = 'block';
-                summaryNumbers.textContent = `Números: ${numbers.map(n => Utils.formatNumber(n)).join(', ')} (${numbers.length} números)`;
-                summaryTotal.textContent = `Total: ${Utils.formatPrice(numbers.length * AppState.raffleConfig.price)}`;
-            } else {
-                summary.style.display = 'none';
-            }
-        } catch (error) {
-            summary.style.display = 'none';
-        }
-    },
-
-    /**
-     * Parsear entrada de números (rangos o específicos)
-     */
-    parseNumberInput: function(input) {
-        const numbers = [];
-        const parts = input.split(',').map(s => s.trim());
-
-        for (const part of parts) {
-            if (part.includes('-')) {
-                // Rango: 001-010
-                const [start, end] = part.split('-').map(s => parseInt(s.trim()));
-                if (isNaN(start) || isNaN(end) || start > end) {
-                    throw new Error(`Rango inválido: ${part}`);
-                }
-                for (let i = start; i <= end; i++) {
-                    if (i >= 0 && i < AppState.raffleConfig.totalNumbers) {
-                        numbers.push(i);
-                    }
-                }
-            } else {
-                // Número específico
-                const num = parseInt(part);
-                if (!isNaN(num) && num >= 0 && num < AppState.raffleConfig.totalNumbers) {
-                    numbers.push(num);
-                }
-            }
-        }
-
-        // Eliminar duplicados y ordenar
-        return [...new Set(numbers)].sort((a, b) => a - b);
-    },
-
-    /**
-     * Verificar disponibilidad de números
-     */
-    checkNumbersAvailability: function(numbers) {
-        const unavailable = [];
-        
-        // Verificar números vendidos
-        AppState.sales.forEach(sale => {
-            sale.numbers.forEach(num => {
-                if (numbers.includes(num)) {
-                    unavailable.push({ number: num, reason: 'vendido', detail: `${sale.buyer.name} ${sale.buyer.lastName}` });
-                }
-            });
-        });
-
-        // Verificar números ya asignados
-        if (AppState.assignments) {
-            AppState.assignments.filter(a => a.status !== 'cancelled').forEach(assignment => {
-                assignment.numbers.forEach(num => {
-                    if (numbers.includes(num)) {
-                        unavailable.push({ number: num, reason: 'asignado', detail: `${assignment.seller_name} ${assignment.seller_lastname}` });
-                    }
-                });
-            });
-        }
-
-        return unavailable;
-    },
-
-    /**
-     * Crear nueva asignación
-     */
-    createAssignment: async function() {
-        const sellerData = {
-            name: Utils.sanitizeInput(document.getElementById('sellerName').value),
-            lastname: Utils.sanitizeInput(document.getElementById('sellerLastname').value),
-            phone: Utils.sanitizeInput(document.getElementById('sellerPhone').value),
-            email: Utils.sanitizeInput(document.getElementById('sellerEmail').value)
-        };
-
-        const numbersInput = document.getElementById('assignmentNumbers').value.trim();
-        const paymentDeadline = document.getElementById('paymentDeadline').value;
-        const notes = document.getElementById('assignmentNotes').value.trim();
-
-        // Validaciones
-        if (!sellerData.name || !sellerData.lastname || !sellerData.phone || !numbersInput) {
-            Utils.showNotification('Por favor completa todos los campos obligatorios', 'error');
-            return;
         }
 
         if (!Utils.validateWhatsApp(sellerData.phone)) {
@@ -213,7 +27,7 @@ window.AssignmentsManager = {
         // Crear asignación
         const assignment = {
             id: Utils.generateId(),
-            raffle_id: AppState.raffleConfig.id || 1,
+            raffle_id: AppState.raffleConfig.id || 'current',
             seller_name: sellerData.name,
             seller_lastname: sellerData.lastname,
             seller_phone: sellerData.phone,
@@ -235,7 +49,7 @@ window.AssignmentsManager = {
                 // Fallback a localStorage
                 if (!AppState.assignments) AppState.assignments = [];
                 AppState.assignments.push(assignment);
-                await autoSave();
+                autoSave();
                 console.log('📱 [ASSIGNMENT] Guardada en localStorage');
             }
 
@@ -244,7 +58,9 @@ window.AssignmentsManager = {
 
             // Actualizar interfaz
             this.loadAssignments();
-            NumbersManager.updateDisplay();
+            if (typeof NumbersManager !== 'undefined') {
+                NumbersManager.updateDisplay();
+            }
 
             // Generar mensaje de WhatsApp
             const whatsappMessage = this.generateAssignmentMessage(assignment);
@@ -273,7 +89,10 @@ window.AssignmentsManager = {
             owner_lastname: assignment.seller_lastname,
             owner_phone: assignment.seller_phone,
             owner_email: assignment.seller_email,
-            edited_at: new Date()
+            owner_instagram: '',
+            membership_area: '',
+            edited_at: new Date(),
+            created_at: new Date()
         }));
 
         if (window.SupabaseManager && SupabaseManager.isConnected) {
@@ -283,7 +102,7 @@ window.AssignmentsManager = {
         } else {
             if (!AppState.numberOwners) AppState.numberOwners = [];
             AppState.numberOwners.push(...owners);
-            await autoSave();
+            autoSave();
         }
     },
 
@@ -299,17 +118,13 @@ window.AssignmentsManager = {
         message += `Hola ${assignment.seller_name}!\n\n`;
         message += `Se te asignaron estos números para vender:\n`;
         message += `🔢 Números: ${numbersFormatted}\n`;
-        message += `📊 Cantidad: ${assignment.numbers.length} números\n`;
-        message += `💰 Total a pagar: ${Utils.formatPrice(assignment.total_amount)}\n`;
-        message += `🏆 Premio: ${AppState.raffleConfig.prize}\n`;
-        message += `🗓️ Sorteo: ${Utils.formatDateTime(AppState.raffleConfig.drawDate)}\n`;
+        message += `💰 Total a pagar: ${Utils.formatPrice(assignment.total_amount)}\n\n`;
         message += deadlineText;
-        message += `\n✅ Puedes cambiar el nombre de los titulares hasta antes del sorteo\n`;
-        message += `💳 Debes confirmar el pago para completar la asignación\n\n`;
-        message += `📞 Para gestionar tus números o confirmar pago, contacta:\n`;
-        message += `${AppState.raffleConfig.whatsappNumber}\n\n`;
-        message += `¡Éxito en las ventas! 🍀⛵`;
-
+        message += `📌 Sorteo: ${Utils.formatDateTime(AppState.raffleConfig.drawDate)}\n\n`;
+        message += `Por favor confirma el pago para asegurar la participación.\n\n`;
+        message += `¡Gracias por tu colaboración!\n`;
+        message += `${AppState.raffleConfig.organization}`;
+        
         return message;
     },
 
@@ -317,49 +132,54 @@ window.AssignmentsManager = {
      * Mostrar confirmación de asignación
      */
     showAssignmentConfirmation: function(assignment, whatsappMessage) {
-        const numbersFormatted = assignment.numbers.map(n => Utils.formatNumber(n)).join(', ');
-        
-        const confirmationHtml = `
-            <div class="confirmation-modal" id="assignmentConfirmationModal">
-                <div class="confirmation-content">
-                    <div class="success-icon">🎯</div>
-                    <h3>Asignación Creada</h3>
-                    <div class="assignment-details">
-                        <p><strong>Vendedor:</strong> ${assignment.seller_name} ${assignment.seller_lastname}</p>
-                        <p><strong>Números:</strong> ${numbersFormatted}</p>
-                        <p><strong>Total:</strong> ${Utils.formatPrice(assignment.total_amount)}</p>
-                        <p><strong>Estado:</strong> ⏳ Asignado (pago pendiente)</p>
+        const modalHtml = `
+            <div class="modal" id="assignmentConfirmModal">
+                <div class="modal-content" style="max-width: 600px;">
+                    <span class="modal-close" onclick="AssignmentsManager.closeConfirmModal()">&times;</span>
+                    <h3>✅ Asignación Creada</h3>
+                    
+                    <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <strong>👤 Vendedor:</strong> ${assignment.seller_name} ${assignment.seller_lastname}<br>
+                        <strong>📞 Teléfono:</strong> ${assignment.seller_phone}<br>
+                        <strong>🔢 Números:</strong> ${assignment.numbers.length} números<br>
+                        <strong>💰 Total:</strong> ${Utils.formatPrice(assignment.total_amount)}
                     </div>
                     
-                    <div style="margin: 20px 0;">
-                        <p><strong>Notificar al vendedor:</strong></p>
-                        <a href="https://wa.me/${NumbersManager.formatPhoneForWhatsApp(assignment.seller_phone)}?text=${encodeURIComponent(whatsappMessage)}" 
-                           class="whatsapp-btn" target="_blank">
-                           📱 Enviar a ${assignment.seller_name}
-                        </a>
+                    <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <strong>📱 Mensaje para WhatsApp:</strong><br>
+                        <textarea readonly style="width: 100%; height: 150px; margin-top: 10px;">${whatsappMessage}</textarea>
                     </div>
                     
-                    <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 14px;">
-                        <strong>📋 Próximos pasos:</strong><br>
-                        1. El vendedor recibe la notificación<br>
-                        2. Puede editar nombres de titulares<br>
-                        3. Debe confirmar pago antes del sorteo<br>
-                        4. Tú puedes gestionar desde el panel de admin
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button class="btn btn-success" onclick="AssignmentsManager.sendWhatsApp('${assignment.seller_phone}', \`${whatsappMessage.replace(/`/g, '\\`')}\`)">
+                            📱 Enviar por WhatsApp
+                        </button>
+                        <button class="btn btn-secondary" onclick="AssignmentsManager.closeConfirmModal()">
+                            Cerrar
+                        </button>
                     </div>
-                    
-                    <button class="btn btn-secondary" onclick="AssignmentsManager.closeAssignmentConfirmation()">Cerrar</button>
                 </div>
             </div>
         `;
         
-        document.body.insertAdjacentHTML('beforeend', confirmationHtml);
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
     /**
-     * Cerrar confirmación de asignación
+     * Enviar mensaje por WhatsApp
      */
-    closeAssignmentConfirmation: function() {
-        const modal = document.getElementById('assignmentConfirmationModal');
+    sendWhatsApp: function(phone, message) {
+        const cleanPhone = phone.replace(/\D/g, '');
+        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+        this.closeConfirmModal();
+    },
+
+    /**
+     * Cerrar modal de confirmación
+     */
+    closeConfirmModal: function() {
+        const modal = document.getElementById('assignmentConfirmModal');
         if (modal) {
             modal.remove();
         }
@@ -369,16 +189,23 @@ window.AssignmentsManager = {
      * Limpiar formulario de asignación
      */
     clearAssignmentForm: function() {
-        const fields = ['sellerName', 'sellerLastname', 'sellerPhone', 'sellerEmail', 'assignmentNumbers', 'paymentDeadline', 'assignmentNotes'];
-        fields.forEach(field => {
-            const element = document.getElementById(field);
-            if (element) element.value = '';
-        });
+        document.getElementById('sellerName').value = '';
+        document.getElementById('sellerLastname').value = '';
+        document.getElementById('sellerPhone').value = '';
+        document.getElementById('sellerEmail').value = '';
+        document.getElementById('assignmentNumbers').value = '';
+        document.getElementById('assignmentNotes').value = '';
+        
+        // Resetear fecha por defecto
+        const defaultDeadline = new Date(AppState.raffleConfig.drawDate);
+        defaultDeadline.setHours(defaultDeadline.getHours() - 24);
+        document.getElementById('paymentDeadline').value = defaultDeadline.toISOString().slice(0, 16);
+        
         document.getElementById('assignmentSummary').style.display = 'none';
     },
 
     /**
-     * Cargar asignaciones existentes
+     * Cargar asignaciones desde la base de datos
      */
     loadAssignments: async function() {
         try {
@@ -479,49 +306,71 @@ window.AssignmentsManager = {
         let actions = [];
 
         if (assignment.status === 'assigned') {
-            actions.push(`<button class="btn-small btn-success" onclick="AssignmentsManager.markAsPaid('${assignment.id}')">💰 Marcar como Pagado</button>`);
+            actions.push(`<button class="btn-small btn-success" onclick="AssignmentsManager.markAsPaid(${assignment.id})">💰 Marcar como Pagado</button>`);
         }
         
         if (assignment.status === 'paid') {
-            actions.push(`<button class="btn-small btn-primary" onclick="AssignmentsManager.confirmAssignment('${assignment.id}')">🎯 Confirmar para Sorteo</button>`);
+            actions.push(`<button class="btn-small btn-primary" onclick="AssignmentsManager.confirmAssignment(${assignment.id})">🎯 Confirmar para Sorteo</button>`);
         }
 
-        actions.push(`<button class="btn-small btn-secondary" onclick="AssignmentsManager.editOwners('${assignment.id}')">✏️ Editar Titulares</button>`);
-        actions.push(`<button class="btn-small btn-info" onclick="AssignmentsManager.sendReminder('${assignment.id}')">📱 Enviar Recordatorio</button>`);
+        // Estas acciones están disponibles para cualquier estado (excepto confirmado)
+        if (assignment.status !== 'confirmed') {
+            actions.push(`<button class="btn-small btn-secondary" onclick="AssignmentsManager.editOwners(${assignment.id})">✏️ Editar Titulares</button>`);
+        }
+
+        actions.push(`<button class="btn-small btn-info" onclick="AssignmentsManager.sendReminder(${assignment.id})">📱 Enviar Recordatorio</button>`);
         
         return actions.join(' ');
     },
 
     /**
-     * Marcar asignación como pagada
+     * Marcar asignación como pagada - CORREGIDA
      */
     markAsPaid: async function(assignmentId) {
-        const assignment = AppState.assignments.find(a => a.id === assignmentId);
-        if (!assignment) return;
+        console.log('🔧 [DEBUG] markAsPaid llamado con ID:', assignmentId);
+        
+        const assignment = AppState.assignments.find(a => a.id == assignmentId); // Usar == para comparar string/number
+        if (!assignment) {
+            console.error('❌ [ERROR] Asignación no encontrada:', assignmentId);
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
 
         const paymentMethod = prompt('Método de pago:', 'efectivo');
         if (!paymentMethod) return;
 
         try {
+            // Actualizar datos localmente primero
             assignment.status = 'paid';
             assignment.paid_at = new Date();
             assignment.payment_method = paymentMethod;
 
+            // Actualizar en Supabase si está conectado
             if (window.SupabaseManager && SupabaseManager.isConnected) {
                 await SupabaseManager.updateAssignment(assignmentId, {
                     status: 'paid',
-                    paid_at: assignment.paid_at,
+                    paid_at: assignment.paid_at.toISOString(),
                     payment_method: paymentMethod
                 });
+                console.log('✅ [SUPABASE] Asignación actualizada en Supabase');
             } else {
-                await autoSave();
+                // Fallback a localStorage
+                autoSave();
+                console.log('📱 [LOCALSTORAGE] Asignación actualizada localmente');
             }
 
+            // Actualizar interfaz
             this.displayAssignments();
             Utils.showNotification('Pago confirmado exitosamente', 'success');
+            
         } catch (error) {
             console.error('❌ Error actualizando pago:', error);
             Utils.showNotification('Error actualizando el pago', 'error');
+            
+            // Revertir cambios locales si falla
+            assignment.status = 'assigned';
+            delete assignment.paid_at;
+            delete assignment.payment_method;
         }
     },
 
@@ -529,35 +378,49 @@ window.AssignmentsManager = {
      * Confirmar asignación para sorteo
      */
     confirmAssignment: async function(assignmentId) {
-        const assignment = AppState.assignments.find(a => a.id === assignmentId);
-        if (!assignment) return;
+        const assignment = AppState.assignments.find(a => a.id == assignmentId);
+        if (!assignment) {
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
 
         if (!confirm(`¿Confirmar asignación de ${assignment.seller_name} para el sorteo?\n\nEsto creará las ventas finales y no se podrá modificar.`)) {
             return;
         }
 
         try {
+            // Actualizar estado localmente
             assignment.status = 'confirmed';
 
             // Crear ventas finales basadas en los titulares actuales
             await this.createFinalSales(assignment);
 
+            // Actualizar en Supabase
             if (window.SupabaseManager && SupabaseManager.isConnected) {
                 await SupabaseManager.updateAssignment(assignmentId, {
                     status: 'confirmed'
                 });
             } else {
-                await autoSave();
+                autoSave();
             }
 
+            // Actualizar interfaces
             this.displayAssignments();
-            NumbersManager.updateDisplay();
-            if (AdminManager.updateInterface) AdminManager.updateInterface();
+            if (typeof NumbersManager !== 'undefined') {
+                NumbersManager.updateDisplay();
+            }
+            if (typeof AdminManager !== 'undefined' && AdminManager.updateInterface) {
+                AdminManager.updateInterface();
+            }
 
             Utils.showNotification('Asignación confirmada para el sorteo', 'success');
+            
         } catch (error) {
             console.error('❌ Error confirmando asignación:', error);
             Utils.showNotification('Error confirmando la asignación', 'error');
+            
+            // Revertir cambio local
+            assignment.status = 'paid';
         }
     },
 
@@ -566,7 +429,7 @@ window.AssignmentsManager = {
      */
     createFinalSales: async function(assignment) {
         // Obtener titulares actuales de los números
-        const owners = AppState.numberOwners.filter(o => o.assignment_id === assignment.id);
+        const owners = AppState.numberOwners.filter(o => o.assignment_id == assignment.id);
         
         // Agrupar por titular para crear ventas consolidadas
         const ownerMap = new Map();
@@ -579,7 +442,7 @@ window.AssignmentsManager = {
                         name: owner.owner_name,
                         lastName: owner.owner_lastname,
                         phone: owner.owner_phone || assignment.seller_phone,
-                        email: owner.owner_email || assignment.seller_email,
+                        email: owner.owner_email || assignment.seller_email || '',
                         instagram: owner.owner_instagram || '',
                         membershipArea: owner.membership_area || ''
                     },
@@ -608,41 +471,54 @@ window.AssignmentsManager = {
                 await SupabaseManager.saveSale(sale);
             } else {
                 AppState.sales.push(sale);
-                await autoSave();
+                autoSave();
             }
         }
     },
 
     /**
-     * Editar titulares de una asignación
+     * Editar titulares de una asignación - CORREGIDA
      */
     editOwners: function(assignmentId) {
-        const assignment = AppState.assignments.find(a => a.id === assignmentId);
-        if (!assignment) return;
+        console.log('🔧 [DEBUG] editOwners llamado con ID:', assignmentId);
+        
+        const assignment = AppState.assignments.find(a => a.id == assignmentId);
+        if (!assignment) {
+            console.error('❌ [ERROR] Asignación no encontrada:', assignmentId);
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
 
-        // Implementar modal de edición de titulares
+        console.log('✅ [DEBUG] Asignación encontrada:', assignment);
         this.showOwnersEditModal(assignment);
     },
 
     /**
-     * Mostrar modal de edición de titulares
+     * Mostrar modal de edición de titulares - CORREGIDA
      */
     showOwnersEditModal: function(assignment) {
-        const owners = AppState.numberOwners.filter(o => o.assignment_id === assignment.id);
+        const owners = AppState.numberOwners.filter(o => o.assignment_id == assignment.id);
+        console.log('🔧 [DEBUG] Titulares encontrados:', owners);
+
+        if (owners.length === 0) {
+            Utils.showNotification('No se encontraron titulares para esta asignación', 'warning');
+            return;
+        }
         
         const ownersHtml = owners.map(owner => `
-            <div class="owner-edit-row" data-number="${owner.number_value}">
+            <div class="owner-edit-row" data-number="${owner.number_value}" data-owner-id="${owner.id}">
                 <div class="owner-number">${Utils.formatNumber(owner.number_value)}</div>
                 <div class="owner-fields">
-                    <input type="text" value="${owner.owner_name}" placeholder="Nombre" data-field="name">
-                    <input type="text" value="${owner.owner_lastname}" placeholder="Apellido" data-field="lastname">
-                    <input type="tel" value="${owner.owner_phone || ''}" placeholder="Teléfono" data-field="phone">
+                    <input type="text" value="${owner.owner_name}" placeholder="Nombre" data-field="owner_name">
+                    <input type="text" value="${owner.owner_lastname}" placeholder="Apellido" data-field="owner_lastname">
+                    <input type="tel" value="${owner.owner_phone || ''}" placeholder="Teléfono" data-field="owner_phone">
+                    <input type="email" value="${owner.owner_email || ''}" placeholder="Email" data-field="owner_email">
                 </div>
             </div>
         `).join('');
 
         const modalHtml = `
-            <div class="modal" id="ownersEditModal">
+            <div class="modal" id="ownersEditModal" style="display: block;">
                 <div class="modal-content" style="max-width: 800px;">
                     <span class="modal-close" onclick="AssignmentsManager.closeOwnersEditModal()">&times;</span>
                     <h3>✏️ Editar Titulares - ${assignment.seller_name}</h3>
@@ -654,57 +530,83 @@ window.AssignmentsManager = {
                         • Los cambios se pueden hacer hasta antes del sorteo
                     </div>
                     
-                    <div class="owners-edit-container">
+                    <div class="owners-edit-container" style="max-height: 400px; overflow-y: auto;">
                         ${ownersHtml}
                     </div>
                     
                     <div style="text-align: center; margin-top: 20px;">
-                        <button class="btn" onclick="AssignmentsManager.saveOwnerChanges('${assignment.id}')">💾 Guardar Cambios</button>
+                        <button class="btn" onclick="AssignmentsManager.saveOwnerChanges(${assignment.id})">💾 Guardar Cambios</button>
                         <button class="btn btn-secondary" onclick="AssignmentsManager.closeOwnersEditModal()">Cancelar</button>
                     </div>
                 </div>
             </div>
         `;
         
+        // Remover modal existente si hay uno
+        const existingModal = document.getElementById('ownersEditModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     },
 
     /**
-     * Guardar cambios de titulares
+     * Guardar cambios de titulares - CORREGIDA
      */
     saveOwnerChanges: async function(assignmentId) {
+        console.log('🔧 [DEBUG] saveOwnerChanges llamado con ID:', assignmentId);
+        
         const modal = document.getElementById('ownersEditModal');
+        if (!modal) {
+            console.error('❌ [ERROR] Modal no encontrado');
+            return;
+        }
+
         const rows = modal.querySelectorAll('.owner-edit-row');
+        console.log('🔧 [DEBUG] Filas encontradas:', rows.length);
         
         try {
             for (const row of rows) {
+                const ownerId = row.dataset.ownerId;
                 const number = parseInt(row.dataset.number);
                 const fields = row.querySelectorAll('input[data-field]');
                 
+                console.log('🔧 [DEBUG] Procesando titular ID:', ownerId, 'Número:', number);
+                
                 const ownerData = {};
                 fields.forEach(field => {
-                    ownerData[`owner_${field.dataset.field}`] = field.value.trim();
+                    ownerData[field.dataset.field] = field.value.trim();
                 });
                 ownerData.edited_at = new Date();
 
-                // Actualizar en memoria
+                console.log('🔧 [DEBUG] Datos a actualizar:', ownerData);
+
+                // Actualizar en memoria local
                 const owner = AppState.numberOwners.find(o => 
-                    o.assignment_id === assignmentId && o.number_value === number
+                    o.assignment_id == assignmentId && o.number_value === number
                 );
+                
                 if (owner) {
                     Object.assign(owner, ownerData);
+                    console.log('✅ [DEBUG] Titular actualizado en memoria:', owner);
+                } else {
+                    console.warn('⚠️ [DEBUG] Titular no encontrado en memoria');
                 }
 
-                // Actualizar en Supabase
-                if (window.SupabaseManager && SupabaseManager.isConnected) {
-                    await SupabaseManager.updateNumberOwner(owner.id, ownerData);
+                // Actualizar en Supabase si está conectado
+                if (window.SupabaseManager && SupabaseManager.isConnected && ownerId) {
+                    await SupabaseManager.updateNumberOwner(ownerId, ownerData);
+                    console.log('✅ [SUPABASE] Titular actualizado en Supabase');
                 } else {
-                    await autoSave();
+                    autoSave();
+                    console.log('📱 [LOCALSTORAGE] Cambios guardados localmente');
                 }
             }
 
             this.closeOwnersEditModal();
             Utils.showNotification('Titulares actualizados exitosamente', 'success');
+            
         } catch (error) {
             console.error('❌ Error actualizando titulares:', error);
             Utils.showNotification('Error actualizando los titulares', 'error');
@@ -722,15 +624,24 @@ window.AssignmentsManager = {
     },
 
     /**
-     * Enviar recordatorio a vendedor
+     * Enviar recordatorio a vendedor - CORREGIDA
      */
     sendReminder: function(assignmentId) {
-        const assignment = AppState.assignments.find(a => a.id === assignmentId);
-        if (!assignment) return;
+        console.log('🔧 [DEBUG] sendReminder llamado con ID:', assignmentId);
+        
+        const assignment = AppState.assignments.find(a => a.id == assignmentId);
+        if (!assignment) {
+            console.error('❌ [ERROR] Asignación no encontrada:', assignmentId);
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
 
         const message = this.generateReminderMessage(assignment);
-        const whatsappUrl = `https://wa.me/${NumbersManager.formatPhoneForWhatsApp(assignment.seller_phone)}?text=${encodeURIComponent(message)}`;
+        const cleanPhone = assignment.seller_phone.replace(/\D/g, '');
+        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+        
         window.open(whatsappUrl, '_blank');
+        Utils.showNotification('Recordatorio enviado por WhatsApp', 'success');
     },
 
     /**
@@ -745,16 +656,27 @@ window.AssignmentsManager = {
             message += `Tienes números asignados pendientes de pago:\n`;
             message += `🔢 Números: ${numbersFormatted}\n`;
             message += `💰 Total: ${Utils.formatPrice(assignment.total_amount)}\n\n`;
-            message += `El sorteo es el ${Utils.formatDateTime(AppState.raffleConfig.drawDate)}.\n`;
+            if (assignment.payment_deadline) {
+                message += `⏰ Plazo límite: ${Utils.formatDateTime(assignment.payment_deadline)}\n`;
+            }
+            message += `📌 Sorteo: ${Utils.formatDateTime(AppState.raffleConfig.drawDate)}\n\n`;
             message += `Por favor confirma tu pago para asegurar la participación.\n\n`;
+        } else if (assignment.status === 'paid') {
+            message += `Estado de tu asignación:\n`;
+            message += `🔢 Números: ${numbersFormatted}\n`;
+            message += `✅ Estado: Pagado\n`;
+            message += `📌 Sorteo: ${Utils.formatDateTime(AppState.raffleConfig.drawDate)}\n\n`;
+            message += `¡Perfecto! Tus números están confirmados para el sorteo.\n\n`;
         } else {
             message += `Estado de tu asignación:\n`;
             message += `🔢 Números: ${numbersFormatted}\n`;
-            message += `📊 Estado: ${this.getStatusText(assignment.status)}\n\n`;
+            message += `🎯 Estado: ${this.getStatusText(assignment.status)}\n\n`;
         }
         
-        message += `Para gestionar tus números, contacta:\n`;
-        message += `${AppState.raffleConfig.whatsappNumber}`;
+        message += `Para consultas, contacta:\n`;
+        message += `📱 ${AppState.raffleConfig.whatsappNumber}\n\n`;
+        message += `¡Gracias por tu colaboración!\n`;
+        message += `${AppState.raffleConfig.organization}`;
         
         return message;
     },
@@ -768,7 +690,7 @@ window.AssignmentsManager = {
         
         assignmentCards.forEach(card => {
             const sellerText = card.querySelector('.assignment-seller').textContent.toLowerCase();
-            const phoneText = card.querySelector('.seller-phone').textContent.toLowerCase();
+            const phoneText = card.querySelector('.seller-phone') ? card.querySelector('.seller-phone').textContent.toLowerCase() : '';
             
             if (sellerText.includes(searchTerm) || phoneText.includes(searchTerm)) {
                 card.style.display = 'block';
@@ -779,4 +701,4 @@ window.AssignmentsManager = {
     }
 };
 
-console.log('✅ AssignmentsManager cargado correctamente');
+console.log('✅ AssignmentsManager (CORREGIDO) cargado correctamente');
