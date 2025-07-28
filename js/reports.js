@@ -32,14 +32,32 @@ window.ReportsManager = {
      * Reporte general con gráfico de progreso
      */
     generateGeneralReport: function() {
-        const sales = AppState.sales;
+        const sales = AppState.sales || [];
+        const assignments = AppState.assignments || [];
+        
+        // Calcular números realmente vendidos (solo ventas confirmadas)
+        const confirmedSales = sales.filter(s => s.status === 'paid');
+        const pendingSales = sales.filter(s => s.status === 'pending');
+        
         const totalSales = sales.length;
         const totalNumbers = sales.reduce((sum, sale) => sum + sale.numbers.length, 0);
-        const totalRevenue = sales.filter(s => s.status === 'paid').reduce((sum, sale) => sum + sale.total, 0);
-        const pendingRevenue = sales.filter(s => s.status === 'pending').reduce((sum, sale) => sum + sale.total, 0);
+        const confirmedNumbers = confirmedSales.reduce((sum, sale) => sum + sale.numbers.length, 0);
+        const pendingNumbers = pendingSales.reduce((sum, sale) => sum + sale.numbers.length, 0);
+        
+        // Números en asignaciones (no vendidos aún)
+        const assignedNumbers = assignments
+            .filter(a => a.status === 'assigned')
+            .reduce((sum, assignment) => sum + assignment.numbers.length, 0);
+        
+        const totalRevenue = confirmedSales.reduce((sum, sale) => sum + sale.total, 0);
+        const pendingRevenue = pendingSales.reduce((sum, sale) => sum + sale.total, 0);
+        
+        // Calcular disponibilidad real
+        const occupiedNumbers = totalNumbers + assignedNumbers; // Vendidos + asignados
         const percentageSold = AppState.raffleConfig ? (totalNumbers / AppState.raffleConfig.totalNumbers * 100) : 0;
+        const percentageOccupied = AppState.raffleConfig ? (occupiedNumbers / AppState.raffleConfig.totalNumbers * 100) : 0;
         const totalPotentialRevenue = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers * AppState.raffleConfig.price : 0;
-        const remainingNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - totalNumbers : 0;
+        const reallyAvailableNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - occupiedNumbers : 0;
 
         const container = document.getElementById('generalReport');
         container.innerHTML = `
@@ -56,12 +74,23 @@ window.ReportsManager = {
                             <div class="label">Ventas Realizadas</div>
                         </div>
                         <div class="summary-stat">
-                            <div class="number">${totalNumbers}</div>
+                            <div class="number">${confirmedNumbers}</div>
                             <div class="label">Números Vendidos</div>
+                            <div class="sublabel">(Confirmados)</div>
                         </div>
                         <div class="summary-stat">
-                            <div class="number">${remainingNumbers}</div>
-                            <div class="label">Números Disponibles</div>
+                            <div class="number">${pendingNumbers}</div>
+                            <div class="label">Números Pendientes</div>
+                            <div class="sublabel">(Por confirmar)</div>
+                        </div>
+                        <div class="summary-stat">
+                            <div class="number">${assignedNumbers}</div>
+                            <div class="label">Números Asignados</div>
+                            <div class="sublabel">(A vendedores)</div>
+                        </div>
+                        <div class="summary-stat">
+                            <div class="number">${reallyAvailableNumbers}</div>
+                            <div class="label">Realmente Disponibles</div>
                         </div>
                         <div class="summary-stat">
                             <div class="number">${Utils.formatPrice(totalRevenue)}</div>
@@ -117,7 +146,8 @@ window.ReportsManager = {
                                     color: ${percentageSold > 50 ? 'white' : '#333'};
                                     text-shadow: ${percentageSold > 50 ? '1px 1px 2px rgba(0,0,0,0.3)' : '1px 1px 2px rgba(255,255,255,0.8)'};
                                 ">
-                                    ${percentageSold.toFixed(1)}% (${totalNumbers}/${AppState.raffleConfig.totalNumbers})
+                                    ${percentageSold.toFixed(1)}% vendido (${confirmedNumbers + pendingNumbers}/${AppState.raffleConfig.totalNumbers})
+                                    <br><small style="font-size: 12px;">${assignedNumbers} asignados, ${reallyAvailableNumbers} disponibles</small>
                                 </div>
                             </div>
                             
@@ -134,7 +164,8 @@ window.ReportsManager = {
                                     </span>
                                 </div>
                                 <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                                    Quedan ${remainingNumbers} números disponibles
+                                    Quedan ${reallyAvailableNumbers} números realmente disponibles
+                                    ${assignedNumbers > 0 ? `<br>${assignedNumbers} números asignados a vendedores` : ''}
                                 </div>
                             </div>
                         </div>
@@ -147,6 +178,12 @@ window.ReportsManager = {
                     0% { background-position: 0 0; }
                     100% { background-position: 40px 0; }
                 }
+                .sublabel {
+                    font-size: 11px;
+                    color: #888;
+                    font-weight: normal;
+                    margin-top: 2px;
+                }
             </style>
         `;
     },
@@ -155,7 +192,7 @@ window.ReportsManager = {
      * Reporte de membresía del club (actualizado con nuevo campo)
      */
     generateMembershipReport: function() {
-        const sales = AppState.sales;
+        const sales = AppState.sales || [];
         
         const membershipData = {
             'no_socio': 0,
@@ -296,18 +333,33 @@ window.ReportsManager = {
      * Exportar reporte general
      */
     exportGeneralReport: function() {
-        const sales = AppState.sales;
+        const sales = AppState.sales || [];
+        const assignments = AppState.assignments || [];
+        
+        const confirmedSales = sales.filter(s => s.status === 'paid');
+        const pendingSales = sales.filter(s => s.status === 'pending');
+        
         const totalSales = sales.length;
         const totalNumbers = sales.reduce((sum, sale) => sum + sale.numbers.length, 0);
-        const totalRevenue = sales.filter(s => s.status === 'paid').reduce((sum, sale) => sum + sale.total, 0);
-        const pendingRevenue = sales.filter(s => s.status === 'pending').reduce((sum, sale) => sum + sale.total, 0);
+        const confirmedNumbers = confirmedSales.reduce((sum, sale) => sum + sale.numbers.length, 0);
+        const pendingNumbers = pendingSales.reduce((sum, sale) => sum + sale.numbers.length, 0);
+        const assignedNumbers = assignments
+            .filter(a => a.status === 'assigned')
+            .reduce((sum, assignment) => sum + assignment.numbers.length, 0);
+        
+        const totalRevenue = confirmedSales.reduce((sum, sale) => sum + sale.total, 0);
+        const pendingRevenue = pendingSales.reduce((sum, sale) => sum + sale.total, 0);
+        const occupiedNumbers = totalNumbers + assignedNumbers;
         const percentageSold = AppState.raffleConfig ? (totalNumbers / AppState.raffleConfig.totalNumbers * 100) : 0;
-        const remainingNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - totalNumbers : 0;
+        const reallyAvailableNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - occupiedNumbers : 0;
 
         let csvContent = "Métrica,Valor\n";
         csvContent += `"Total de ventas","${totalSales}"\n`;
-        csvContent += `"Números vendidos","${totalNumbers}"\n`;
-        csvContent += `"Números disponibles","${remainingNumbers}"\n`;
+        csvContent += `"Números vendidos confirmados","${confirmedNumbers}"\n`;
+        csvContent += `"Números vendidos pendientes","${pendingNumbers}"\n`;
+        csvContent += `"Total números vendidos","${totalNumbers}"\n`;
+        csvContent += `"Números asignados a vendedores","${assignedNumbers}"\n`;
+        csvContent += `"Números realmente disponibles","${reallyAvailableNumbers}"\n`;
         csvContent += `"Ingresos confirmados","${totalRevenue}"\n`;
         csvContent += `"Ingresos pendientes","${pendingRevenue}"\n`;
         csvContent += `"Ingresos totales","${totalRevenue + pendingRevenue}"\n`;
@@ -322,7 +374,7 @@ window.ReportsManager = {
      * Exportar reporte de membresía
      */
     exportMembershipReport: function() {
-        const sales = AppState.sales;
+        const sales = AppState.sales || [];
         
         let csvContent = "Relación con el Club,Cantidad,Porcentaje\n";
         

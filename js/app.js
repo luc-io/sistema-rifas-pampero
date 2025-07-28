@@ -377,7 +377,7 @@ function showTab(tabName) {
     
     // Cargar datos específicos de la pestaña si es necesario
     if (tabName === 'assignments' && typeof AssignmentsManager !== 'undefined') {
-        AssignmentsManager.loadAssignments();
+        AssignmentsManager.updateAssignmentsList();
     }
     
     if (tabName === 'admin' && typeof AdminManager !== 'undefined') {

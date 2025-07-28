@@ -346,7 +346,7 @@ window.GoogleSheetsManager = {
         // Preparar datos de asignaciones
         const assignmentsData = AppState.assignments.map(assignment => [
             assignment.id,
-            assignment.seller_name,
+            `${assignment.seller_name} ${assignment.seller_lastname || ''}`.trim(),
             assignment.seller_phone,
             assignment.numbers.map(n => Utils.formatNumber(n)).join(', '),
             assignment.numbers.length,

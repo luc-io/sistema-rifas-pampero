@@ -26,11 +26,15 @@ window.AssignmentValidation = {
     /**
      * Validar que los campos requeridos estén completos
      */
-    validateRequiredFields: function(sellerName, sellerPhone, paymentDeadline) {
+    validateRequiredFields: function(sellerName, sellerLastName, sellerPhone, paymentDeadline) {
         const errors = [];
         
         if (!sellerName || sellerName.trim().length < 2) {
             errors.push('El nombre del vendedor debe tener al menos 2 caracteres');
+        }
+        
+        if (!sellerLastName || sellerLastName.trim().length < 2) {
+            errors.push('El apellido del vendedor debe tener al menos 2 caracteres');
         }
         
         if (!sellerPhone || sellerPhone.trim().length < 8) {

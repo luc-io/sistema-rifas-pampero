@@ -77,7 +77,7 @@ const AssignmentsManager = {
             <div class="assignment-card" data-assignment-id="${assignment.id}">
                 <div class="assignment-header">
                     <div class="assignment-seller">
-                        <strong>${assignment.seller_name}</strong>
+                        <strong>${assignment.seller_name} ${assignment.seller_lastname || ''}</strong>
                         <div class="seller-phone">${assignment.seller_phone}</div>
                     </div>
                     <div class="assignment-status status-${assignment.status}">
@@ -151,6 +151,11 @@ const AssignmentsManager = {
                         <div class="form-group">
                             <label for="sellerName">Nombre del vendedor:</label>
                             <input type="text" id="sellerName" placeholder="Nombre del vendedor" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="sellerLastName">Apellido del vendedor:</label>
+                            <input type="text" id="sellerLastName" placeholder="Apellido del vendedor" required>
                         </div>
                         
                         <div class="form-group">
@@ -422,13 +427,14 @@ const AssignmentsManager = {
      */
     createAssignment: async function() {
         const sellerName = document.getElementById('sellerName').value.trim();
+        const sellerLastName = document.getElementById('sellerLastName').value.trim();
         const sellerPhone = document.getElementById('sellerPhone').value.trim();
         const paymentDeadline = document.getElementById('paymentDeadline').value;
         const notes = document.getElementById('assignmentNotes').value.trim();
         const method = document.querySelector('input[name="assignmentMethod"]:checked').value;
         
         // Validaciones básicas
-        const fieldValidation = AssignmentValidation.validateRequiredFields(sellerName, sellerPhone, paymentDeadline);
+        const fieldValidation = AssignmentValidation.validateRequiredFields(sellerName, sellerLastName, sellerPhone, paymentDeadline);
         if (!fieldValidation.isValid) {
             Utils.showNotification(`Error: ${fieldValidation.errors.join(', ')}`, 'error');
             return;
@@ -474,6 +480,7 @@ const AssignmentsManager = {
             const assignment = {
                 id: Utils.generateId(),
                 seller_name: sellerName,
+                seller_lastname: sellerLastName,
                 seller_phone: AssignmentValidation.formatPhone(sellerPhone),
                 numbers: numbers,
                 total_amount: numbers.length * AppState.raffleConfig.price,
@@ -517,7 +524,7 @@ const AssignmentsManager = {
             this.closeCreateAssignmentModal();
             
             const methodText = method === 'consecutive' ? 'consecutivos automáticos' : 'manuales';
-            Utils.showNotification(`Asignación creada exitosamente para ${sellerName} (${numbers.length} números ${methodText})`, 'success');
+            Utils.showNotification(`Asignación creada exitosamente para ${sellerName} ${sellerLastName} (${numbers.length} números ${methodText})`, 'success');
             
         } catch (error) {
             console.error('❌ [ASSIGNMENTS] Error creando asignación:', error);
