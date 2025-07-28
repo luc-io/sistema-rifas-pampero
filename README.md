@@ -147,3 +147,7 @@ El sistema ahora incluye una nueva funcionalidad de **asignaciones obligatorias*
 ---
 
 ✨ **Sistema profesional, seguro y listo para producción** ✨
+
+AIzaSyD-jURMnPjLogmHfyFHncEXw1fP5_SqBUU api key
+
+758158064041-4h6rk4jovr8k82li4k27571cfiu3iitb.apps.googleusercontent.com client id

@@ -5,6 +5,106 @@
     box-sizing: border-box;
 }
 
+/* Estilos para modal de información de números */
+.number-info-section {
+    margin-bottom: 20px;
+}
+
+.info-subsection {
+    margin-bottom: 20px;
+    border-left: 3px solid #4CAF50;
+    padding-left: 15px;
+}
+
+.info-subsection h5 {
+    color: #4CAF50;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.info-item label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-item span {
+    font-size: 14px;
+    color: #333;
+    word-break: break-word;
+}
+
+/* Responsive para grid de información */
+@media (max-width: 480px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+
+/* Estilos para badges de estado */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Mejorar estilos de modales en general */
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+}
+
+.modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 1px solid #eee;
+    margin-top: 20px;
+    padding-top: 15px;
+}
+
+/* Estilos específicos para números clickeables */
+.number-btn {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.number-btn.sold:hover,
+.number-btn.assigned:hover,
+.number-btn.confirmed:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

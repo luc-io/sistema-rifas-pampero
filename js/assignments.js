@@ -514,7 +514,16 @@ const AssignmentsManager = {
                 }));
                 
                 // Guardar titulares
-                await Promise.all(numberOwners.map(owner => SupabaseManager.saveNumberOwner(owner)));
+                const savedOwners = await Promise.all(numberOwners.map(owner => SupabaseManager.saveNumberOwner(owner)));
+                
+                // Actualizar titulares con IDs de Supabase y agregar al estado local
+                const ownersWithIds = savedOwners.map((result, index) => ({
+                    ...numberOwners[index],
+                    id: result[0].id,
+                    created_at: result[0].created_at
+                }));
+                
+                AppState.numberOwners.push(...ownersWithIds);
                 
                 // Actualizar assignment con ID de Supabase
                 assignment.id = assignmentId;
@@ -667,16 +676,32 @@ const AssignmentsManager = {
                                             <input type="text" data-field="name" value="${owner.name || ''}" placeholder="Nombre del titular">
                                         </div>
                                         <div class="field-group">
-                                            <label>Telefono:</label>
-                                            <input type="text" data-field="phone" value="${owner.phone || ''}" placeholder="Telefono del titular">
+                                            <label>Apellido:</label>
+                                            <input type="text" data-field="lastname" value="${owner.lastname || ''}" placeholder="Apellido del titular">
+                                        </div>
+                                        <div class="field-group">
+                                            <label>Teléfono:</label>
+                                            <input type="text" data-field="phone" value="${owner.phone || ''}" placeholder="Teléfono del titular">
                                         </div>
                                         <div class="field-group">
                                             <label>Email:</label>
                                             <input type="email" data-field="email" value="${owner.email || ''}" placeholder="Email del titular">
                                         </div>
                                         <div class="field-group">
-                                            <label>Notas:</label>
-                                            <input type="text" data-field="notes" value="${owner.notes || ''}" placeholder="Notas adicionales">
+                                            <label>Instagram:</label>
+                                            <input type="text" data-field="instagram" value="${owner.instagram || ''}" placeholder="@usuario">
+                                        </div>
+                                        <div class="field-group">
+                                            <label>Área de membresía:</label>
+                                            <select data-field="membership_area">
+                                                <option value="" ${!owner.membership_area ? 'selected' : ''}>Seleccionar...</option>
+                                                <option value="no_socio" ${owner.membership_area === 'no_socio' ? 'selected' : ''}>No es socio</option>
+                                                <option value="nautica" ${owner.membership_area === 'nautica' ? 'selected' : ''}>Socio - Náutica</option>
+                                                <option value="remo" ${owner.membership_area === 'remo' ? 'selected' : ''}>Socio - Remo</option>
+                                                <option value="ecologia" ${owner.membership_area === 'ecologia' ? 'selected' : ''}>Socio - Ecología</option>
+                                                <option value="pesca" ${owner.membership_area === 'pesca' ? 'selected' : ''}>Socio - Pesca</option>
+                                                <option value="ninguna" ${owner.membership_area === 'ninguna' ? 'selected' : ''}>Socio - Sin área específica</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -725,7 +750,12 @@ const AssignmentsManager = {
                 
                 const ownerData = {};
                 fields.forEach(field => {
-                    ownerData[field.dataset.field] = field.value.trim();
+                    const value = field.value.trim();
+                    if (field.type === 'select-one') {
+                        ownerData[field.dataset.field] = value;
+                    } else {
+                        ownerData[field.dataset.field] = value;
+                    }
                 });
                 ownerData.edited_at = new Date();
 
@@ -743,9 +773,20 @@ const AssignmentsManager = {
                     console.warn('Titular no encontrado en memoria');
                 }
 
+                // Mapear campos para Supabase (estructura de base de datos)
+                const supabaseData = {
+                    owner_name: ownerData.name,
+                    owner_lastname: ownerData.lastname,
+                    owner_phone: ownerData.phone,
+                    owner_email: ownerData.email,
+                    owner_instagram: ownerData.instagram,
+                    membership_area: ownerData.membership_area,
+                    edited_at: ownerData.edited_at
+                };
+
                 // Actualizar en Supabase si esta conectado
                 if (window.SupabaseManager && SupabaseManager.isConnected && ownerId) {
-                    await SupabaseManager.updateNumberOwner(ownerId, ownerData);
+                    await SupabaseManager.updateNumberOwner(ownerId, supabaseData);
                     console.log('Titular actualizado en Supabase');
                 } else if (typeof autoSave === 'function') {
                     autoSave();

@@ -751,12 +751,12 @@ window.SupabaseManager = {
                 id: owner.id,
                 assignment_id: owner.assignment_id,
                 number_value: owner.number_value,
-                owner_name: owner.owner_name,
-                owner_lastname: owner.owner_lastname,
-                owner_phone: owner.owner_phone,
-                owner_email: owner.owner_email,
-                owner_instagram: owner.owner_instagram,
-                membership_area: owner.membership_area,
+                name: owner.owner_name || '',
+                lastname: owner.owner_lastname || '',
+                phone: owner.owner_phone || '',
+                email: owner.owner_email || '',
+                instagram: owner.owner_instagram || '',
+                membership_area: owner.membership_area || '',
                 edited_at: DateUtils.parseDate(owner.edited_at),
                 created_at: DateUtils.parseDate(owner.created_at)
             }));
