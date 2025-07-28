@@ -1,3 +1,65 @@
+/**
+ * Gestor de asignaciones de numeros
+ */
+const AssignmentsManager = {
+    
+    /**
+     * Mostrar modal de edicion de titulares
+     */
+    showOwnersEditModal: function(assignmentId) {
+        console.log('showOwnersEditModal llamado con ID:', assignmentId);
+        
+        const assignment = AppState.assignments.find(a => a.id == assignmentId);
+        if (!assignment) {
+            console.error('Asignacion no encontrada:', assignmentId);
+            Utils.showNotification('Asignacion no encontrada', 'error');
+            return;
+        }
+
+        const owners = AppState.numberOwners.filter(o => o.assignment_id == assignmentId);
+        console.log('Titulares encontrados:', owners);
+
+        const modalHtml = `
+            <div id="ownersEditModal" class="modal" style="display: block;">
+                <div class="modal-content owners-edit-modal">
+                    <div class="modal-header">
+                        <h3>Editar Titulares - ${assignment.seller_name}</h3>
+                        <span class="close-btn" onclick="AssignmentsManager.closeOwnersEditModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="owners-edit-container">
+                            ${owners.map(owner => `
+                                <div class="owner-edit-row" data-owner-id="${owner.id || ''}" data-number="${owner.number_value}">
+                                    <div class="owner-number">
+                                        <strong>Numero ${Utils.formatNumber(owner.number_value)}</strong>
+                                    </div>
+                                    <div class="owner-fields">
+                                        <div class="field-group">
+                                            <label>Nombre:</label>
+                                            <input type="text" data-field="name" value="${owner.name || ''}" placeholder="Nombre del titular">
+                                        </div>
+                                        <div class="field-group">
+                                            <label>Telefono:</label>
+                                            <input type="text" data-field="phone" value="${owner.phone || ''}" placeholder="Telefono del titular">
+                                        </div>
+                                        <div class="field-group">
+                                            <label>Email:</label>
+                                            <input type="email" data-field="email" value="${owner.email || ''}" placeholder="Email del titular">
+                                        </div>
+                                        <div class="field-group">
+                                            <label>Notas:</label>
+                                            <input type="text" data-field="notes" value="${owner.notes || ''}" placeholder="Notas adicionales">
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="AssignmentsManager.closeOwnersEditModal()">Cancelar</button>
+                        <button class="btn btn-primary" onclick="AssignmentsManager.saveOwnerChanges('${assignmentId}')">Guardar Cambios</button>
+                    </div>
+                </div>
             </div>
         `;
         
@@ -57,7 +119,7 @@
                 if (window.SupabaseManager && SupabaseManager.isConnected && ownerId) {
                     await SupabaseManager.updateNumberOwner(ownerId, ownerData);
                     console.log('Titular actualizado en Supabase');
-                } else {
+                } else if (typeof autoSave === 'function') {
                     autoSave();
                     console.log('Cambios guardados localmente');
                 }
@@ -138,6 +200,19 @@
         message += `${AppState.raffleConfig.organization}`;
         
         return message;
+    },
+
+    /**
+     * Obtener texto del estado
+     */
+    getStatusText: function(status) {
+        const statusMap = {
+            'assigned': 'Asignado',
+            'paid': 'Pagado',
+            'expired': 'Vencido',
+            'cancelled': 'Cancelado'
+        };
+        return statusMap[status] || status;
     },
 
     /**
