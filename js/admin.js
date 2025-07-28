@@ -632,6 +632,153 @@ window.AdminManager = {
     },
 
     /**
+     * Confirmar reserva convirtiéndola en venta
+     */
+    confirmReservation: async function(reservationId, paymentMethod) {
+        console.log(`🔍 [ADMIN] Confirmando reserva ${reservationId} con método: ${paymentMethod}`);
+        
+        // Buscar la reserva
+        const reservation = AppState.reservations.find(r => r.id == reservationId && r.status === 'active');
+        if (!reservation) {
+            console.error(`❌ [ADMIN] Reserva ${reservationId} no encontrada`);
+            Utils.showNotification('Reserva no encontrada', 'error');
+            return;
+        }
+        
+        // Verificar que los números aún estén disponibles
+        const validation = this.validateNumbersNotSold(reservation.numbers);
+        if (!validation.isValid) {
+            Utils.showNotification(`No se puede confirmar: números ya vendidos (${validation.duplicates.map(n => Utils.formatNumber(n)).join(', ')})`, 'error');
+            return;
+        }
+        
+        if (!confirm(`¿Confirmar reserva de ${reservation.buyer.name} ${reservation.buyer.lastName} por ${Utils.formatPrice(reservation.total)}?`)) {
+            return;
+        }
+        
+        const status = paymentMethod === 'transferencia' ? 'pending' : 'paid';
+        
+        // Crear venta desde reserva
+        const sale = {
+            id: Utils.generateId(),
+            numbers: [...reservation.numbers],
+            buyer: reservation.buyer,
+            paymentMethod,
+            total: reservation.total,
+            status,
+            date: new Date(),
+            originalReservationId: reservation.id
+        };
+        
+        try {
+            // Guardar venta y actualizar reserva
+            if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                // Guardar venta
+                await window.SupabaseManager.saveSale(sale);
+                // Marcar reserva como confirmada
+                await window.SupabaseManager.updateReservationStatus(reservationId, 'confirmed');
+                
+                console.log('✅ [ADMIN] Reserva confirmada en Supabase');
+            } else {
+                // Fallback a localStorage
+                AppState.sales.push(sale);
+                reservation.status = 'confirmed';
+                await autoSave();
+                console.log('📱 [ADMIN] Reserva confirmada en localStorage');
+            }
+            
+            // Actualizar UI inmediatamente
+            reservation.status = 'confirmed';
+            
+            // Marcar números como vendidos
+            reservation.numbers.forEach(number => {
+                const button = document.getElementById(`number-${number}`);
+                if (button) {
+                    button.classList.remove('available', 'reserved');
+                    button.classList.add('sold');
+                }
+            });
+            
+            // Actualizar interfaces
+            this.updateInterface();
+            if (NumbersManager.updateDisplay) NumbersManager.updateDisplay();
+            
+            // Generar mensaje de confirmación
+            const numbersFormatted = sale.numbers.map(n => Utils.formatNumber(n)).join(', ');
+            const whatsappMessage = NumbersManager.generateSimpleWhatsAppMessage(sale, numbersFormatted);
+            
+            // Mostrar confirmación con WhatsApp
+            this.showReservationConfirmedModal(sale, whatsappMessage);
+            
+            Utils.showNotification(`Reserva confirmada como ${paymentMethod}`, 'success');
+            
+        } catch (error) {
+            console.error('❌ [ADMIN] Error confirmando reserva:', error);
+            Utils.showNotification('Error confirmando la reserva', 'error');
+        }
+    },
+    
+    /**
+     * Mostrar modal de confirmación de reserva
+     */
+    showReservationConfirmedModal: function(sale, whatsappMessage) {
+        const numbersFormatted = sale.numbers.map(n => Utils.formatNumber(n)).join(', ');
+        
+        const confirmationHtml = `
+            <div class="confirmation-modal" id="reservationConfirmedModal">
+                <div class="confirmation-content">
+                    <div class="success-icon">✅</div>
+                    <h3>Reserva Confirmada</h3>
+                    <p><strong>Cliente:</strong> ${sale.buyer.name} ${sale.buyer.lastName}</p>
+                    <p><strong>Números:</strong> ${numbersFormatted}</p>
+                    <p><strong>Total:</strong> ${Utils.formatPrice(sale.total)}</p>
+                    <p><strong>Pago:</strong> ${AppConstants.PAYMENT_METHODS[sale.paymentMethod]}</p>
+                    
+                    ${sale.status === 'pending' ? 
+                        '<p style="color: #856404;"><strong>⏳ Pago pendiente por transferencia</strong></p>' : 
+                        '<p style="color: #4CAF50;"><strong>✅ Pago confirmado</strong></p>'
+                    }
+                    
+                    <div style="margin: 20px 0;">
+                        <p><strong>Notificar al cliente:</strong></p>
+                        <a href="https://wa.me/${NumbersManager.formatPhoneForWhatsApp(sale.buyer.phone)}?text=${encodeURIComponent(whatsappMessage)}" 
+                           class="whatsapp-btn" target="_blank">
+                           📱 Enviar confirmación a ${sale.buyer.name}
+                        </a>
+                    </div>
+                    
+                    <button class="btn btn-secondary" onclick="AdminManager.closeReservationConfirmedModal()">Cerrar</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', confirmationHtml);
+    },
+    
+    /**
+     * Cerrar modal de confirmación de reserva
+     */
+    closeReservationConfirmedModal: function() {
+        const modal = document.getElementById('reservationConfirmedModal');
+        if (modal) {
+            modal.remove();
+        }
+    },
+    
+    /**
+     * Validar que los números no estén ya vendidos
+     */
+    validateNumbersNotSold: function(numbers) {
+        const soldNumbers = AppState.sales.flatMap(sale => sale.numbers);
+        const duplicates = numbers.filter(num => soldNumbers.includes(num));
+        
+        return {
+            isValid: duplicates.length === 0,
+            duplicates: duplicates
+        };
+    },
+
+    /**
      * Reenviar confirmación por WhatsApp
      */
     sendWhatsAppConfirmation: function(saleId) {
@@ -641,6 +788,7 @@ window.AdminManager = {
         const numbersFormatted = sale.numbers.map(n => Utils.formatNumber(n)).join(', ');
         const whatsappMessage = NumbersManager.generateSimpleWhatsAppMessage(sale, numbersFormatted);
         
+        // ✅ CORREGIDO: Abrir WhatsApp para enviar mensaje AL CLIENTE
         const whatsappUrl = `https://wa.me/${NumbersManager.formatPhoneForWhatsApp(sale.buyer.phone)}?text=${encodeURIComponent(whatsappMessage)}`;
         window.open(whatsappUrl, '_blank');
     },
