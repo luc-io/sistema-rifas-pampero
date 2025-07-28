@@ -620,8 +620,11 @@ window.NumbersManager = {
         let message = `🎉 ¡Hola ${reservation.buyer.name}! Confirmación de reserva\n\n`;
         message += `⏰ *RESERVA CONFIRMADA*\n\n`;
         message += `🎟️ *${AppState.raffleConfig.name}*\n`;
-        message += `🏆 *Premio:* ${AppState.raffleConfig.prize}\n\n`;
-        message += `🔢 *Tus números reservados:* ${numbersFormatted}\n`;
+        message += `🏆 *Premio:* ${AppState.raffleConfig.prize}\n`;
+        if (AppState.raffleConfig.drawDate) {
+            message += `🏗️ *Sorteo:* ${Utils.formatDateTime(AppState.raffleConfig.drawDate)}\n`;
+        }
+        message += `\n🔢 *Tus números reservados:* ${numbersFormatted}\n`;
         message += `💰 *Total a pagar:* ${Utils.formatPrice(reservation.total)}\n`;
         
         if (reservation.buyer.instagram && reservation.buyer.instagram !== '') {
@@ -660,8 +663,11 @@ window.NumbersManager = {
         let message = `🎉 ¡Hola ${sale.buyer.name}!\n\n`;
         message += `${statusText}\n\n`;
         message += `🎟️ *${AppState.raffleConfig.name}*\n`;
-        message += `🏆 *Premio:* ${AppState.raffleConfig.prize}\n\n`;
-        message += `🔢 *Tus números:* ${numbersFormatted}\n`;
+        message += `🏆 *Premio:* ${AppState.raffleConfig.prize}\n`;
+        if (AppState.raffleConfig.drawDate) {
+            message += `🏗️ *Sorteo:* ${Utils.formatDateTime(AppState.raffleConfig.drawDate)}\n`;
+        }
+        message += `\n🔢 *Tus números:* ${numbersFormatted}\n`;
         message += `💰 *Total:* ${Utils.formatPrice(sale.total)}\n`;
         message += `💳 *Método de pago:* ${AppConstants.PAYMENT_METHODS[sale.paymentMethod]}\n`;
         

@@ -454,6 +454,10 @@ function loadFromLocalStorage() {
     if (savedConfig) {
         AppState.raffleConfig = savedConfig;
         AppState.raffleConfig.createdAt = DateUtils.parseDate(savedConfig.createdAt);
+        // Asegurar que drawDate sea un objeto Date si existe
+        if (savedConfig.drawDate) {
+            AppState.raffleConfig.drawDate = DateUtils.parseDate(savedConfig.drawDate);
+        }
         console.log('📊 [LOAD] Configuración cargada desde localStorage');
     }
 
@@ -482,10 +486,12 @@ function updateInterfaceAfterLoad() {
     if (AppState.raffleConfig) {
         // Actualizar UI
         document.getElementById('raffleTitle').textContent = AppState.raffleConfig.name;
-        document.getElementById('raffleSubtitle').textContent = `${AppState.raffleConfig.organization} - ${AppState.raffleConfig.price} por número`;
+        const drawDateFormatted = AppState.raffleConfig.drawDate ? Utils.formatDateTime(AppState.raffleConfig.drawDate) : 'No definida';
+        document.getElementById('raffleSubtitle').textContent = `${AppState.raffleConfig.organization} - ${AppState.raffleConfig.price} por número - Sorteo: ${drawDateFormatted}`;
         
         // Llenar formulario de configuración
         const fields = {
+            'drawDate': 'drawDate',
             'raffleName': 'name',
             'prizeDescription': 'prize',
             'totalNumbers': 'totalNumbers',
@@ -498,8 +504,15 @@ function updateInterfaceAfterLoad() {
 
         Object.entries(fields).forEach(([fieldId, configKey]) => {
             const element = document.getElementById(fieldId);
-            if (element) {
-                element.value = AppState.raffleConfig[configKey];
+            if (element && AppState.raffleConfig[configKey] !== undefined && AppState.raffleConfig[configKey] !== null) {
+                if (fieldId === 'drawDate' && AppState.raffleConfig[configKey]) {
+                    // Formatear fecha para input datetime-local
+                    const date = new Date(AppState.raffleConfig[configKey]);
+                    const isoString = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString();
+                    element.value = isoString.slice(0, 16); // YYYY-MM-DDTHH:MM
+                } else {
+                    element.value = AppState.raffleConfig[configKey];
+                }
             }
         });
         

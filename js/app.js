@@ -136,6 +136,7 @@ window.RaffleApp = {
      * Configurar la rifa inicial
      */
     setupRaffle: function() {
+        const drawDate = document.getElementById('drawDate').value;
         const name = document.getElementById('raffleName').value;
         const prize = document.getElementById('prizeDescription').value;
         const totalNumbers = parseInt(document.getElementById('totalNumbers').value);
@@ -145,7 +146,7 @@ window.RaffleApp = {
         const clubInstagram = document.getElementById('clubInstagram').value;
         const reservationTime = parseInt(document.getElementById('reservationTime').value);
 
-        if (!name || !prize || !totalNumbers || !price || !whatsappNumber || !reservationTime) {
+        if (!drawDate || !name || !prize || !totalNumbers || !price || !whatsappNumber || !reservationTime) {
             Utils.showNotification('Por favor completa todos los campos obligatorios', 'error');
             return;
         }
@@ -155,8 +156,18 @@ window.RaffleApp = {
             Utils.showNotification('Por favor ingresa un número de WhatsApp válido', 'error');
             return;
         }
+        
+        // Validar fecha de sorteo
+        const drawDateTime = new Date(drawDate);
+        const now = new Date();
+        
+        if (drawDateTime <= now) {
+            Utils.showNotification('La fecha del sorteo debe ser futura', 'error');
+            return;
+        }
 
         AppState.raffleConfig = {
+            drawDate: drawDateTime,
             name,
             prize,
             totalNumbers,
@@ -170,7 +181,8 @@ window.RaffleApp = {
 
         // Actualizar header
         document.getElementById('raffleTitle').textContent = name;
-        document.getElementById('raffleSubtitle').textContent = `${organization} - $${price} por número`;
+        const drawDateFormatted = Utils.formatDateTime(drawDateTime);
+        document.getElementById('raffleSubtitle').textContent = `${organization} - ${price} por número - Sorteo: ${drawDateFormatted}`;
 
         // Guardar configuración usando SupabaseManager si está disponible
         console.log('🔍 [DEBUG] Guardando configuración...');
