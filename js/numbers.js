@@ -90,9 +90,12 @@ window.NumbersManager = {
         
         if (sale.status === 'pending') {
             message += `*Datos para transferir:*\n`;
-            message += `Alias: PAMPERO.RIFA\n`;
-            message += `CBU: 0000003100010000000001\n`;
-            message += `Titular: ${AppState.raffleConfig.organization}\n\n`;
+            message += `Mercado Pago\n`;
+            message += `Alias: pnberosario.mp\n`;
+            message += `CVU: 000000310003262395392\n`;
+            message += `Titular: Fernando Ernesto Maumus\n`;
+            message += `CUIT: 20239282564\n\n`;
+            message += `Importante: En la descripción/concepto agrega "Rifa Náutica"\n`;
             message += `Envia el comprobante al ${AppState.raffleConfig.whatsappNumber}\n\n`;
         }
         
@@ -1051,9 +1054,12 @@ window.NumbersManager = {
         
         if (sale.status === 'pending') {
             message += `🏦 *Datos para transferir:*\n`;
-            message += `• Alias: PAMPERO.RIFA\n`;
-            message += `• CBU: 0000003100010000000001\n`;
-            message += `• Titular: ${AppState.raffleConfig.organization}\n\n`;
+            message += `• Mercado Pago\n`;
+            message += `• Alias: pnberosario.mp\n`;
+            message += `• CVU: 000000310003262395392\n`;
+            message += `• Titular: Fernando Ernesto Maumus\n`;
+            message += `• CUIT: 20239282564\n\n`;
+            message += `📝 *Importante:* En la descripción/concepto agrega "Rifa Náutica"\n`;
             message += `📲 *Envía el comprobante de transferencia al ${AppState.raffleConfig.whatsappNumber} para confirmar tu compra.*\n\n`;
         }
         

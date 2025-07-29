@@ -9,6 +9,35 @@
     <meta name="keywords" content="rifas, sorteos, club náutico, pampero, sistema ventas">
     <meta name="author" content="Club Náutico Pampero">
     
+    <!-- Content Security Policy para Google APIs -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' 
+            https://apis.google.com 
+            https://www.gstatic.com 
+            https://accounts.google.com 
+            https://ssl.gstatic.com 
+            https://www.google.com 
+            https://unpkg.com;
+        style-src 'self' 'unsafe-inline' 
+            https://fonts.googleapis.com 
+            https://www.gstatic.com;
+        font-src 'self' 
+            https://fonts.gstatic.com;
+        connect-src 'self' 
+            https://sheets.googleapis.com 
+            https://www.googleapis.com 
+            https://accounts.google.com 
+            https://oauth2.googleapis.com 
+            https://ssmpnzcjhrjqhglqkmoe.supabase.co;
+        frame-src 'self' 
+            https://accounts.google.com 
+            https://www.google.com;
+        img-src 'self' data: 
+            https://www.gstatic.com 
+            https://ssl.gstatic.com;
+    ">
+    
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#4CAF50">
     <meta name="mobile-web-app-capable" content="yes">
@@ -266,11 +295,16 @@
 
             <div id="transferInfo" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 10px 0;">
                 <h4 style="color: #0066cc; margin-bottom: 10px;">📱 Datos para Transferencia</h4>
-                <p><strong>Alias:</strong> PAMPERO.RIFA</p>
-                <p><strong>CBU:</strong> 0000003100010000000001</p>
-                <p><strong>Titular:</strong> Club Náutico Pampero</p>
+                <p><strong>Mercado Pago:</strong></p>
+                <p><strong>Alias:</strong> pnberosario.mp</p>
+                <p><strong>CVU:</strong> 000000310003262395392</p>
+                <p><strong>Titular:</strong> Fernando Ernesto Maumus</p>
+                <p><strong>CUIT:</strong> 20239282564</p>
                 <p style="margin-top: 10px; font-size: 14px; color: #666;">
-                    💡 <strong>Importante:</strong> Envía el comprobante por WhatsApp al número que aparece abajo para confirmar tu compra.
+                    📝 <strong>Importante:</strong> En la descripción/concepto de la transferencia, agrega: <strong>"Rifa Náutica"</strong>
+                </p>
+                <p style="margin-top: 8px; font-size: 14px; color: #666;">
+                    📱 <strong>Confirmación:</strong> Envía el comprobante por WhatsApp al número que aparece abajo para confirmar tu compra.
                 </p>
             </div>
             
