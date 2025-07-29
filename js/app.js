@@ -484,7 +484,7 @@ function initializeInterfaces() {
         
         // Crear interfaces
         if (typeof NumbersManager !== 'undefined') {
-            NumbersManager.createInterface();
+            NumbersManager.init();
         }
         
         if (typeof AssignmentsManager !== 'undefined') {
