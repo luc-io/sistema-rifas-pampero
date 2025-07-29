@@ -306,7 +306,6 @@ window.RaffleApp = {
 
         // Inicializar interfaces con datos limpios
         NumbersManager.createInterface();
-        AssignmentsManager.createInterface();
         AdminManager.createInterface();
         NumbersManager.startReservationChecker();
         

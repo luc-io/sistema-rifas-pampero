@@ -446,20 +446,30 @@ window.SupabaseManager = {
                 console.log(`✅ [SUPABASE] ${AppState.reservations.length} reservas cargadas`);
             }
 
-            // Cargar asignaciones
+            // Cargar asignaciones - verificar si la tabla existe
             try {
                 AppState.assignments = await this.getAssignments();
             } catch (error) {
-                console.warn('⚠️ Error cargando asignaciones (tabla puede no existir):', error.message);
-                AppState.assignments = [];
+                if (error.code === '42P01' || error.message.includes('does not exist') || error.message.includes('404')) {
+                    console.warn('⚠️ [SUPABASE] Tabla assignments no existe, omitiendo...');
+                    AppState.assignments = [];
+                } else {
+                    console.error('❌ Error cargando asignaciones:', error);
+                    AppState.assignments = [];
+                }
             }
 
-            // Cargar titulares de números
+            // Cargar titulares de números - verificar si la tabla existe
             try {
                 AppState.numberOwners = await this.getNumberOwners();
             } catch (error) {
-                console.warn('⚠️ Error cargando titulares (tabla puede no existir):', error.message);
-                AppState.numberOwners = [];
+                if (error.code === '42P01' || error.message.includes('does not exist') || error.message.includes('404')) {
+                    console.warn('⚠️ [SUPABASE] Tabla number_owners no existe, omitiendo...');
+                    AppState.numberOwners = [];
+                } else {
+                    console.error('❌ Error cargando titulares:', error);
+                    AppState.numberOwners = [];
+                }
             }
 
             console.log('✅ [SUPABASE] Todos los datos cargados desde Supabase');
@@ -642,13 +652,24 @@ window.SupabaseManager = {
                 }])
                 .select();
                 
-            if (error) throw error;
+            if (error) {
+                if (error.code === '42P01' || error.message.includes('does not exist')) {
+                    console.warn('⚠️ [SUPABASE] Tabla assignments no existe, guardando solo localmente');
+                    // Simular respuesta exitosa con ID temporal
+                    return [{ id: Utils.generateId(), created_at: new Date().toISOString() }];
+                }
+                throw error;
+            }
             
             console.log('✅ [SUPABASE] Asignación guardada en Supabase');
             
             return data;
             
         } catch (error) {
+            if (error.message.includes('does not exist') || error.message.includes('404')) {
+                console.warn('⚠️ [SUPABASE] Tabla assignments no disponible, guardando solo localmente');
+                return [{ id: Utils.generateId(), created_at: new Date().toISOString() }];
+            }
             console.error('❌ [SUPABASE] Error guardando asignación:', error);
             throw error;
         }
@@ -678,13 +699,24 @@ window.SupabaseManager = {
                 }])
                 .select();
                 
-            if (error) throw error;
+            if (error) {
+                if (error.code === '42P01' || error.message.includes('does not exist')) {
+                    console.warn('⚠️ [SUPABASE] Tabla number_owners no existe, guardando solo localmente');
+                    // Simular respuesta exitosa con ID temporal
+                    return [{ id: Utils.generateId(), created_at: new Date().toISOString() }];
+                }
+                throw error;
+            }
             
             console.log('✅ [SUPABASE] Titular guardado en Supabase');
             
             return data;
             
         } catch (error) {
+            if (error.message.includes('does not exist') || error.message.includes('404')) {
+                console.warn('⚠️ [SUPABASE] Tabla number_owners no disponible, guardando solo localmente');
+                return [{ id: Utils.generateId(), created_at: new Date().toISOString() }];
+            }
             console.error('❌ [SUPABASE] Error guardando titular:', error);
             throw error;
         }
@@ -830,7 +862,27 @@ window.SupabaseManager = {
                 .update(dataToUpdate)
                 .eq('id', ownerId);
                 
-            if (error) throw error;
+            if (error) {
+                if (error.code === '42P01' || error.message.includes('does not exist')) {
+                    console.warn('⚠️ [SUPABASE] Tabla number_owners no existe, actualizando solo localmente');
+                    // Continuar con actualización local
+                    const owner = AppState.numberOwners?.find(o => o.id == ownerId);
+                    if (owner) {
+                        Object.assign(owner, {
+                            name: updateData.owner_name || owner.name,
+                            lastname: updateData.owner_lastname || owner.lastname,
+                            phone: updateData.owner_phone || owner.phone,
+                            email: updateData.owner_email || owner.email,
+                            instagram: updateData.owner_instagram || owner.instagram,
+                            membership_area: updateData.membership_area || owner.membership_area,
+                            edited_at: dataToUpdate.edited_at
+                        });
+                        console.log(`✅ [SUPABASE] Titular ${ownerId} actualizado en memoria local`);
+                    }
+                    return true;
+                }
+                throw error;
+            }
             
             // Actualizar estado local
             const owner = AppState.numberOwners?.find(o => o.id == ownerId);
@@ -851,6 +903,24 @@ window.SupabaseManager = {
             return true;
             
         } catch (error) {
+            if (error.message.includes('does not exist') || error.message.includes('404')) {
+                console.warn('⚠️ [SUPABASE] Tabla number_owners no disponible, actualizando solo localmente');
+                // Actualizar solo en memoria local
+                const owner = AppState.numberOwners?.find(o => o.id == ownerId);
+                if (owner) {
+                    Object.assign(owner, {
+                        name: updateData.owner_name || owner.name,
+                        lastname: updateData.owner_lastname || owner.lastname,
+                        phone: updateData.owner_phone || owner.phone,
+                        email: updateData.owner_email || owner.email,
+                        instagram: updateData.owner_instagram || owner.instagram,
+                        membership_area: updateData.membership_area || owner.membership_area,
+                        edited_at: new Date()
+                    });
+                    console.log(`✅ [SUPABASE] Titular ${ownerId} actualizado en memoria local`);
+                }
+                return true;
+            }
             console.error('❌ [SUPABASE] Error actualizando titular:', error);
             throw error;
         }

@@ -53,8 +53,21 @@ window.Utils = {
      * Calcula tiempo restante hasta una fecha
      */
     getTimeLeft: function(expiresAt) {
+        if (!expiresAt) {
+            return { hours: 0, minutes: 0 };
+        }
+        
         const now = new Date();
-        const diff = expiresAt.getTime() - now.getTime();
+        // Convertir a Date si es string
+        const targetDate = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+        
+        // Verificar si la fecha es válida
+        if (isNaN(targetDate.getTime())) {
+            console.warn('⚠️ [UTILS] Fecha inválida proporcionada a getTimeLeft:', expiresAt);
+            return { hours: 0, minutes: 0 };
+        }
+        
+        const diff = targetDate.getTime() - now.getTime();
         
         if (diff <= 0) {
             return { hours: 0, minutes: 0 };
@@ -138,6 +151,40 @@ window.Utils = {
     },
 
     /**
+     * Genera un ID único
+     */
+    generateId: function() {
+        return Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9);
+    },
+
+    /**
+     * Genera un ID numérico único
+     */
+    generateNumericId: function() {
+        return Date.now() + Math.floor(Math.random() * 1000);
+    },
+
+    /**
+     * Formatea un precio como moneda
+     */
+    formatPrice: function(amount) {
+        if (typeof amount !== 'number') {
+            amount = parseFloat(amount) || 0;
+        }
+        return '$' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    },
+
+    /**
+     * Formatea fecha y hora
+     */
+    formatDateTime: function(date) {
+        if (!(date instanceof Date)) {
+            date = new Date(date);
+        }
+        return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    },
+
+    /**
      * Valida datos requeridos de un comprador
      */
     validateBuyerData: function(buyerData) {
@@ -164,72 +211,6 @@ window.Utils = {
     sanitizeInput: function(input) {
         if (typeof input !== 'string') return input;
         return input.trim().replace(/[<>]/g, '');
-    },
-
-    /**
-     * Formatea precio en pesos argentinos
-     */
-    formatPrice: function(amount) {
-        return `$${amount.toFixed(2)}`;
-    },
-
-    /**
-     * Formatea fecha y hora
-     */
-    formatDateTime: function(date) {
-        if (!(date instanceof Date)) {
-            date = new Date(date);
-        }
-        return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-    },
-
-    /**
-     * Genera un ID único
-     */
-    generateId: function() {
-        return Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    },
-    
-    /**
-     * Genera un ID numérico para compatibilidad con Supabase integer
-     */
-    generateNumericId: function() {
-        // Usar timestamp con algunos dígitos aleatorios para evitar colisiones
-        const timestamp = Date.now();
-        const random = Math.floor(Math.random() * 1000);
-        // Asegurar que no sea demasiado grande para integer (max 2147483647)
-        return parseInt(String(timestamp).slice(-8) + String(random).padStart(3, '0'));
-    },
-
-    /**
-     * Debounce function para optimizar búsquedas
-     */
-    debounce: function(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    },
-
-    /**
-     * Maneja clics fuera de un elemento
-     */
-    handleClickOutside: function(element, callback) {
-        const handleClick = (event) => {
-            if (!element.contains(event.target)) {
-                callback();
-                document.removeEventListener('click', handleClick);
-            }
-        };
-        
-        setTimeout(() => {
-            document.addEventListener('click', handleClick);
-        }, 100);
     }
 };
 
@@ -329,24 +310,6 @@ window.DateUtils = {
             date = new Date(date);
         }
         return date.toISOString().split('T')[0];
-    },
-
-    /**
-     * Obtiene el inicio del día
-     */
-    getStartOfDay: function(date) {
-        const newDate = new Date(date);
-        newDate.setHours(0, 0, 0, 0);
-        return newDate;
-    },
-
-    /**
-     * Obtiene el final del día
-     */
-    getEndOfDay: function(date) {
-        const newDate = new Date(date);
-        newDate.setHours(23, 59, 59, 999);
-        return newDate;
     }
 };
 
@@ -368,14 +331,6 @@ window.showTab = function(tabName) {
     // Actualizar contenido según la pestaña
     if (tabName === 'reports' && AppState.raffleConfig) {
         ReportsManager.updateReports();
-    }
-};
-
-// Cerrar modal al hacer clic fuera
-window.onclick = function(event) {
-    const modal = document.getElementById('purchaseModal');
-    if (event.target === modal) {
-        NumbersManager.closePurchaseModal();
     }
 };
 
