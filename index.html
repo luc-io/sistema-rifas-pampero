@@ -9,7 +9,7 @@
     <meta name="keywords" content="rifas, sorteos, club náutico, pampero, sistema ventas">
     <meta name="author" content="Club Náutico Pampero">
     
-    <!-- Content Security Policy para Google APIs -->
+    <!-- Content Security Policy actualizada para Google APIs y Supabase -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'unsafe-eval' 
@@ -29,10 +29,13 @@
             https://www.googleapis.com 
             https://accounts.google.com 
             https://oauth2.googleapis.com 
-            https://ssmpnzcjhrjqhglqkmoe.supabase.co;
+            https://content-sheets.googleapis.com 
+            https://ssmpnzcjhrjqhglqkmoe.supabase.co 
+            wss://ssmpnzcjhrjqhglqkmoe.supabase.co;
         frame-src 'self' 
             https://accounts.google.com 
-            https://www.google.com;
+            https://www.google.com 
+            https://content-sheets.googleapis.com;
         img-src 'self' data: 
             https://www.gstatic.com 
             https://ssl.gstatic.com;

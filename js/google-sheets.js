@@ -1,23 +1,26 @@
 /**
  * INTEGRACIÓN CON GOOGLE SHEETS - Sistema de Rifas Pampero
- * Maneja la sincronización de datos con Google Sheets
+ * Implementación moderna usando Google Identity Services (GIS)
+ * Solucionando el error: idpiframe_initialization_failed
  */
 
 window.GoogleSheetsManager = {
     
     // Configuración de Google Sheets API
     config: {
-        apiKey: null,
-        clientId: null,
+        apiKey: 'AIzaSyD-jURMnPjLogmHfyFHncEXw1fP5_SqBUU',
+        clientId: '758158064041-4h6rk4jovr8k82li4k27571cfiu3iitb.apps.googleusercontent.com',
         discoveryDoc: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
         scopes: 'https://www.googleapis.com/auth/spreadsheets',
         spreadsheetId: null,
         isInitialized: false,
-        isSignedIn: false
+        isSignedIn: false,
+        tokenClient: null,
+        accessToken: null
     },
     
     /**
-     * Inicializar Google Sheets API
+     * Inicializar Google Sheets API con Google Identity Services
      */
     init: async function() {
         // Verificar si ya está inicializado
@@ -38,19 +41,33 @@ window.GoogleSheetsManager = {
         }
         
         try {
-            console.log('🔄 [SHEETS] Inicializando Google API...');
+            console.log('🔄 [SHEETS] Inicializando Google API con GIS...');
+            
+            // Cargar las librerías necesarias
             await this.loadGoogleAPI();
+            await this.loadGoogleIdentityServices();
             await this.initializeGapi();
+            
+            // Configurar el cliente de tokens usando GIS
+            this.initializeTokenClient();
+            
             this.config.isInitialized = true;
-            console.log('✅ [SHEETS] Google Sheets API inicializada');
+            console.log('✅ [SHEETS] Google Sheets API inicializada con GIS');
+            this.updateUIStatus();
             return true;
+            
         } catch (error) {
             console.error('❌ [SHEETS] Error inicializando Google Sheets:', error);
             
             // Proporcionar mensaje de error más descriptivo
-            if (error.error === 'idpiframe_initialization_failed') {
+            if (error.message && error.message.includes('idpiframe_initialization_failed')) {
                 const currentOrigin = window.location.origin;
                 throw new Error(`Dominio no autorizado. Agrega '${currentOrigin}' como origen autorizado en Google Cloud Console:\n\n1. Ve a Google Cloud Console\n2. APIs y servicios > Credenciales\n3. Edita tu OAuth 2.0 Client ID\n4. Agrega '${currentOrigin}' en 'Orígenes de JavaScript autorizados'`);
+            }
+            
+            // Manejar errores de red y otros
+            if (error.message?.includes('network') || error.message?.includes('fetch')) {
+                throw new Error('Error de red - verifica tu conexión a internet');
             }
             
             throw error;
@@ -70,34 +87,76 @@ window.GoogleSheetsManager = {
             const script = document.createElement('script');
             script.src = 'https://apis.google.com/js/api.js';
             script.onload = resolve;
-            script.onerror = reject;
+            script.onerror = () => reject(new Error('No se pudo cargar Google API'));
             document.head.appendChild(script);
         });
     },
     
     /**
-     * Inicializar GAPI
+     * Cargar Google Identity Services
+     */
+    loadGoogleIdentityServices: function() {
+        return new Promise((resolve, reject) => {
+            if (window.google && window.google.accounts) {
+                resolve();
+                return;
+            }
+            
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('No se pudo cargar Google Identity Services'));
+            document.head.appendChild(script);
+        });
+    },
+    
+    /**
+     * Inicializar GAPI (solo para API calls, no para auth)
      */
     initializeGapi: function() {
         return new Promise((resolve, reject) => {
-            gapi.load('client:auth2', async () => {
+            gapi.load('client', async () => {
                 try {
                     await gapi.client.init({
                         apiKey: this.config.apiKey,
-                        clientId: this.config.clientId,
-                        discoveryDocs: [this.config.discoveryDoc],
-                        scope: this.config.scopes
+                        discoveryDocs: [this.config.discoveryDoc]
                     });
-                    
-                    // Verificar estado de autenticación
-                    const authInstance = gapi.auth2.getAuthInstance();
-                    this.config.isSignedIn = authInstance.isSignedIn.get();
-                    
                     resolve();
                 } catch (error) {
                     reject(error);
                 }
             });
+        });
+    },
+    
+    /**
+     * Inicializar el cliente de tokens con GIS
+     */
+    initializeTokenClient: function() {
+        this.config.tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: this.config.clientId,
+            scope: this.config.scopes,
+            callback: (tokenResponse) => {
+                console.log('🔑 [SHEETS] Token recibido:', tokenResponse);
+                
+                if (tokenResponse.error) {
+                    console.error('❌ [SHEETS] Error obteniendo token:', tokenResponse.error);
+                    Utils.showNotification('Error conectando con Google Sheets', 'error');
+                    return;
+                }
+                
+                this.config.accessToken = tokenResponse.access_token;
+                this.config.isSignedIn = true;
+                
+                // Configurar el token para las llamadas a la API
+                gapi.client.setToken({
+                    access_token: tokenResponse.access_token
+                });
+                
+                console.log('✅ [SHEETS] Autenticación exitosa');
+                Utils.showNotification('Conectado a Google Sheets exitosamente', 'success');
+                this.updateUIStatus();
+            }
         });
     },
     
@@ -115,6 +174,12 @@ window.GoogleSheetsManager = {
             clientId,
             spreadsheetId
         }));
+        
+        // Resetear inicialización para usar nuevas credenciales
+        this.config.isInitialized = false;
+        this.config.isSignedIn = false;
+        this.config.tokenClient = null;
+        this.config.accessToken = null;
     },
     
     /**
@@ -133,7 +198,7 @@ window.GoogleSheetsManager = {
     },
     
     /**
-     * Iniciar sesión en Google
+     * Iniciar sesión en Google usando GIS
      */
     signIn: async function() {
         if (!this.config.isInitialized) {
@@ -143,24 +208,34 @@ window.GoogleSheetsManager = {
             }
         }
         
-        const authInstance = gapi.auth2.getAuthInstance();
-        await authInstance.signIn();
-        this.config.isSignedIn = true;
-        
-        Utils.showNotification('Conectado a Google Sheets exitosamente', 'success');
-        return true;
+        // Usar el nuevo método de GIS para solicitar token
+        if (this.config.tokenClient) {
+            this.config.tokenClient.requestAccessToken({
+                prompt: 'consent' // Forzar pantalla de consentimiento
+            });
+        } else {
+            throw new Error('Cliente de tokens no inicializado');
+        }
     },
     
     /**
      * Cerrar sesión
      */
-    signOut: async function() {
-        if (this.config.isInitialized) {
-            const authInstance = gapi.auth2.getAuthInstance();
-            await authInstance.signOut();
-            this.config.isSignedIn = false;
-            Utils.showNotification('Desconectado de Google Sheets', 'info');
+    signOut: function() {
+        if (this.config.accessToken) {
+            // Revocar el token usando GIS
+            google.accounts.oauth2.revoke(this.config.accessToken, () => {
+                console.log('🔓 [SHEETS] Token revocado');
+            });
         }
+        
+        // Limpiar estado
+        this.config.isSignedIn = false;
+        this.config.accessToken = null;
+        gapi.client.setToken(null);
+        
+        Utils.showNotification('Desconectado de Google Sheets', 'info');
+        this.updateUIStatus();
     },
     
     /**
@@ -169,6 +244,17 @@ window.GoogleSheetsManager = {
     createRaffleSpreadsheet: async function(raffleName) {
         if (!this.config.isSignedIn) {
             await this.signIn();
+            // Esperar a que se complete la autenticación
+            return new Promise((resolve) => {
+                const checkAuth = () => {
+                    if (this.config.isSignedIn) {
+                        this.createRaffleSpreadsheet(raffleName).then(resolve);
+                    } else {
+                        setTimeout(checkAuth, 1000);
+                    }
+                };
+                checkAuth();
+            });
         }
         
         const spreadsheetName = `Rifa - ${raffleName} - ${new Date().getFullYear()}`;
@@ -225,6 +311,7 @@ window.GoogleSheetsManager = {
             this.setCredentials(this.config.apiKey, this.config.clientId, spreadsheetId);
             
             Utils.showNotification('Hoja de cálculo creada exitosamente', 'success');
+            this.updateUIStatus();
             
             return {
                 spreadsheetId,
@@ -307,39 +394,51 @@ window.GoogleSheetsManager = {
         
         if (!this.config.isSignedIn) {
             await this.signIn();
+            return; // Se reintentará después de la autenticación
         }
         
-        // Limpiar datos existentes (excepto headers)
-        await this.clearRange(this.config.spreadsheetId, 'Ventas!A2:O1000');
-        
-        // Preparar datos de ventas
-        const salesData = AppState.sales.map(sale => [
-            sale.id,
-            Utils.formatDateTime(sale.date),
-            sale.buyer.name,
-            sale.buyer.lastName,
-            sale.buyer.phone,
-            sale.buyer.email || '',
-            sale.buyer.instagram || '',
-            sale.numbers.map(n => Utils.formatNumber(n)).join(', '),
-            sale.numbers.length,
-            sale.total,
-            AppConstants.PAYMENT_METHODS[sale.paymentMethod] || sale.paymentMethod,
-            sale.status,
-            AppConstants.MEMBER_LABELS[sale.buyer.membershipArea] || 'No especificado',
-            sale.buyer.membershipArea || '',
-            sale.buyer.navigationInterest || ''
-        ]);
-        
-        if (salesData.length > 0) {
-            await this.updateRange(
-                this.config.spreadsheetId,
-                `Ventas!A2:O${salesData.length + 1}`,
-                salesData
-            );
+        try {
+            // Verificar que tenemos datos de ventas
+            if (!AppState.sales || !Array.isArray(AppState.sales)) {
+                console.warn('⚠️ [SHEETS] No hay datos de ventas para sincronizar');
+                return;
+            }
+            
+            // Limpiar datos existentes (excepto headers)
+            await this.clearRange(this.config.spreadsheetId, 'Ventas!A2:O1000');
+            
+            // Preparar datos de ventas
+            const salesData = AppState.sales.map(sale => [
+                sale.id || '',
+                Utils.formatDateTime(sale.date),
+                sale.buyer?.name || '',
+                sale.buyer?.lastName || '',
+                sale.buyer?.phone || '',
+                sale.buyer?.email || '',
+                sale.buyer?.instagram || '',
+                sale.numbers?.map(n => Utils.formatNumber(n)).join(', ') || '',
+                sale.numbers?.length || 0,
+                sale.total || 0,
+                AppConstants.PAYMENT_METHODS?.[sale.paymentMethod] || sale.paymentMethod || '',
+                sale.status || 'pending',
+                AppConstants.MEMBER_LABELS?.[sale.buyer?.membershipArea] || 'No especificado',
+                sale.buyer?.membershipArea || '',
+                sale.buyer?.navigationInterest || ''
+            ]);
+            
+            if (salesData.length > 0) {
+                await this.updateRange(
+                    this.config.spreadsheetId,
+                    `Ventas!A2:O${salesData.length + 1}`,
+                    salesData
+                );
+            }
+            
+            console.log(`✅ [SHEETS] ${salesData.length} ventas sincronizadas`);
+        } catch (error) {
+            console.error('❌ [SHEETS] Error sincronizando ventas:', error);
+            throw error;
         }
-        
-        console.log('✅ [SHEETS] Ventas sincronizadas');
     },
     
     /**
@@ -352,36 +451,64 @@ window.GoogleSheetsManager = {
         
         if (!this.config.isSignedIn) {
             await this.signIn();
+            return; // Se reintentará después de la autenticación
         }
         
-        // Limpiar datos existentes (excepto headers)
-        await this.clearRange(this.config.spreadsheetId, 'Asignaciones!A2:J1000');
-        
-        // Preparar datos de asignaciones
-        const assignmentsData = AppState.assignments.map(assignment => [
-            assignment.id,
-            `${assignment.seller_name} ${assignment.seller_lastname || ''}`.trim(),
-            assignment.seller_phone,
-            assignment.numbers.map(n => Utils.formatNumber(n)).join(', '),
-            assignment.numbers.length,
-            assignment.total_amount,
-            assignment.status,
-            Utils.formatDateTime(assignment.assigned_at),
-            assignment.payment_deadline ? Utils.formatDateTime(assignment.payment_deadline) : '',
-            assignment.notes || ''
-        ]);
-        
-        if (assignmentsData.length > 0) {
-            await this.updateRange(
-                this.config.spreadsheetId,
-                `Asignaciones!A2:J${assignmentsData.length + 1}`,
-                assignmentsData
-            );
+        try {
+            // Verificar que tenemos datos de asignaciones
+            if (!AppState.assignments || !Array.isArray(AppState.assignments)) {
+                console.warn('⚠️ [SHEETS] No hay datos de asignaciones para sincronizar');
+                return;
+            }
+            
+            // Limpiar datos existentes (excepto headers)
+            await this.clearRange(this.config.spreadsheetId, 'Asignaciones!A2:J1000');
+            
+            // Preparar datos de asignaciones
+            const assignmentsData = AppState.assignments.map(assignment => [
+                assignment.id || '',
+                `${assignment.seller_name || ''} ${assignment.seller_lastname || ''}`.trim(),
+                assignment.seller_phone || '',
+                assignment.numbers?.map(n => Utils.formatNumber(n)).join(', ') || '',
+                assignment.numbers?.length || 0,
+                assignment.total_amount || 0,
+                assignment.status || 'pending',
+                Utils.formatDateTime(assignment.assigned_at),
+                assignment.payment_deadline ? Utils.formatDateTime(assignment.payment_deadline) : '',
+                assignment.notes || ''
+            ]);
+            
+            if (assignmentsData.length > 0) {
+                await this.updateRange(
+                    this.config.spreadsheetId,
+                    `Asignaciones!A2:J${assignmentsData.length + 1}`,
+                    assignmentsData
+                );
+            }
+            
+            console.log(`✅ [SHEETS] ${assignmentsData.length} asignaciones sincronizadas`);
+        } catch (error) {
+            console.error('❌ [SHEETS] Error sincronizando asignaciones:', error);
+            throw error;
         }
-        
-        console.log('✅ [SHEETS] Asignaciones sincronizadas');
     },
     
+    /**
+     * Verificar disponibilidad de datos
+     */
+    checkDataAvailability: function() {
+        const hasSales = !!(AppState?.sales && Array.isArray(AppState.sales) && AppState.sales.length > 0);
+        const hasAssignments = !!(AppState?.assignments && Array.isArray(AppState.assignments) && AppState.assignments.length > 0);
+        const hasRaffleConfig = !!(AppState?.raffleConfig && AppState.raffleConfig.name);
+        
+        return {
+            hasSales,
+            hasAssignments,
+            hasRaffleConfig,
+            totalData: (hasSales ? 1 : 0) + (hasAssignments ? 1 : 0)
+        };
+    },
+
     /**
      * Sincronizar todos los datos
      */
@@ -389,13 +516,71 @@ window.GoogleSheetsManager = {
         try {
             Utils.showNotification('Sincronizando con Google Sheets...', 'info');
             
-            await this.syncSales();
-            await this.syncAssignments();
+            // Verificar que la aplicación esté inicializada
+            if (!AppState || !AppState.initialized) {
+                Utils.showNotification('La aplicación no está inicializada', 'error');
+                return;
+            }
             
-            Utils.showNotification('Datos sincronizados exitosamente', 'success');
+            // Verificar disponibilidad de datos
+            const dataStatus = this.checkDataAvailability();
+            console.log('📊 [SHEETS] Estado de datos:', dataStatus);
+            
+            if (dataStatus.totalData === 0) {
+                Utils.showNotification('No hay datos para sincronizar', 'info');
+                return;
+            }
+            
+            let syncCount = 0;
+            let errors = [];
+            
+            // Sincronizar ventas si hay datos
+            if (dataStatus.hasSales) {
+                try {
+                    await this.syncSales();
+                    syncCount++;
+                } catch (error) {
+                    console.error('❌ [SHEETS] Error sincronizando ventas:', error);
+                    errors.push('ventas');
+                }
+            }
+            
+            // Sincronizar asignaciones si hay datos
+            if (dataStatus.hasAssignments) {
+                try {
+                    await this.syncAssignments();
+                    syncCount++;
+                } catch (error) {
+                    console.error('❌ [SHEETS] Error sincronizando asignaciones:', error);
+                    errors.push('asignaciones');
+                }
+            }
+            
+            if (syncCount === 0 && errors.length > 0) {
+                Utils.showNotification(`Error sincronizando: ${errors.join(', ')}`, 'error');
+            } else if (syncCount > 0) {
+                const message = errors.length > 0 
+                    ? `Datos sincronizados (${syncCount} de ${dataStatus.totalData} tablas)` 
+                    : `Datos sincronizados exitosamente (${syncCount} tablas)`;
+                Utils.showNotification(message, syncCount === dataStatus.totalData ? 'success' : 'warning');
+            }
         } catch (error) {
             console.error('❌ [SHEETS] Error sincronizando:', error);
-            Utils.showNotification('Error sincronizando con Google Sheets', 'error');
+            
+            // Manejar errores específicos
+            let errorMessage = 'Error sincronizando con Google Sheets';
+            
+            if (error.message?.includes('relation')) {
+                errorMessage = 'Error de base de datos - algunas tablas no existen';
+            } else if (error.message?.includes('spreadsheet')) {
+                errorMessage = 'Error con Google Sheets - verifica la configuración';
+            } else if (error.message?.includes('network')) {
+                errorMessage = 'Error de conexión - verifica tu internet';
+            } else if (error.message?.includes('permission')) {
+                errorMessage = 'Error de permisos - verifica la configuración de Google Sheets';
+            }
+            
+            Utils.showNotification(errorMessage, 'error');
             throw error;
         }
     },
@@ -429,6 +614,60 @@ window.GoogleSheetsManager = {
     },
     
     /**
+     * Actualizar estado en la UI
+     */
+    updateUIStatus: function() {
+        const indicator = document.getElementById('sheetsConnectionIndicator');
+        const text = document.getElementById('sheetsConnectionText');
+        const details = document.getElementById('sheetsConnectionDetails');
+        const createBtn = document.getElementById('createSheetsBtn');
+        const syncBtn = document.getElementById('syncSheetsBtn');
+        
+        try {
+            // Verificar que existan los elementos
+            if (!indicator || !text || !details || !createBtn || !syncBtn) {
+                console.warn('⚠️ [SHEETS] Elementos de UI no encontrados');
+                return;
+            }
+            
+            // Verificar disponibilidad de datos
+            const dataStatus = this.checkDataAvailability();
+            const hasDataToSync = dataStatus.totalData > 0;
+            
+            if (this.config.isSignedIn) {
+                indicator.style.background = '#28a745';
+                text.textContent = 'Conectado';
+                details.textContent = this.config.spreadsheetId ? 
+                    `Hoja configurada: ${this.config.spreadsheetId.substring(0, 10)}...` : 
+                    'Listo para crear hoja de cálculo';
+                createBtn.disabled = false;
+                syncBtn.disabled = !this.config.spreadsheetId || !hasDataToSync;
+                
+                // Actualizar tooltip
+                if (!hasDataToSync) {
+                    syncBtn.title = 'No hay datos para sincronizar';
+                } else {
+                    syncBtn.title = `Sincronizar ${dataStatus.hasSales ? 'ventas' : ''}${dataStatus.hasSales && dataStatus.hasAssignments ? ' y ' : ''}${dataStatus.hasAssignments ? 'asignaciones' : ''}`;
+                }
+            } else if (this.config.isInitialized) {
+                indicator.style.background = '#ffc107';
+                text.textContent = 'Inicializado (no conectado)';
+                details.textContent = 'Haz clic en "Configurar" para conectar';
+                createBtn.disabled = true;
+                syncBtn.disabled = true;
+            } else {
+                indicator.style.background = '#dc3545';
+                text.textContent = 'No configurado';
+                details.textContent = 'Configura las credenciales primero';
+                createBtn.disabled = true;
+                syncBtn.disabled = true;
+            }
+        } catch (error) {
+            console.error('❌ [SHEETS] Error actualizando estado UI:', error);
+        }
+    },
+    
+    /**
      * Mostrar modal de configuración
      */
     showConfigModal: function() {
@@ -438,12 +677,18 @@ window.GoogleSheetsManager = {
         
         const modalHtml = `
             <div id="googleSheetsConfigModal" class="modal" style="display: block;">
-                <div class="modal-content">
+                <div class="modal-content" style="max-width: 700px;">
                     <div class="modal-header">
-                        <h3>📊 Configurar Google Sheets</h3>
+                        <h3>📊 Configurar Google Sheets - GIS</h3>
                         <span class="close-btn" onclick="GoogleSheetsManager.closeConfigModal()">&times;</span>
                     </div>
                     <div class="modal-body">
+                        <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #bee5eb;">
+                            <h4>🔄 Actualización Importante</h4>
+                            <p><strong>Nueva implementación:</strong> Ahora usamos Google Identity Services (GIS) en lugar de la API deprecated.</p>
+                            <p><strong>Estado actual:</strong> ${this.config.isInitialized ? '✅ Inicializado' : '❌ No inicializado'}</p>
+                        </div>
+                        
                         <div style="background: ${isHTTPS || isLocalhost ? '#d4edda' : '#f8d7da'}; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid ${isHTTPS || isLocalhost ? '#28a745' : '#dc3545'};">
                             <h4>🔒 Estado del Protocolo</h4>
                             <p><strong>URL Actual:</strong> <code>${currentOrigin}</code></p>
@@ -453,11 +698,23 @@ window.GoogleSheetsManager = {
                             }
                         </div>
                         
-                        <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                            <h4>🔧 Instrucciones de Configuración</h4>
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                            <h4>🚨 Configuración Requerida en Google Cloud Console</h4>
+                            <p><strong>PASO CRÍTICO:</strong> Para resolver el error <code>idpiframe_initialization_failed</code>, debes:</p>
                             <ol style="margin: 10px 0; padding-left: 20px;">
-                                <li><strong>Ve a la <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></strong></li>
-                                <li><strong>Crea un proyecto nuevo</strong> o selecciona uno existente</li>
+                                <li>Ve a <strong><a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console > Credenciales</a></strong></li>
+                                <li>Busca y edita tu <strong>OAuth 2.0 Client ID</strong></li>
+                                <li>En <strong>"Orígenes de JavaScript autorizados"</strong>, agrega exactamente:</li>
+                            </ol>
+                            <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin: 10px 0; font-family: monospace; border: 1px solid #ddd;">
+                                ${currentOrigin}
+                            </div>
+                            <p><strong>⚠️ Sin esta configuración, la conexión fallará siempre.</strong></p>
+                        </div>
+                        
+                        <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4>🔧 Instrucciones Completas</h4>
+                            <ol style="margin: 10px 0; padding-left: 20px;">
                                 <li><strong>Habilita la API:</strong>
                                     <ul style="margin: 5px 0; padding-left: 15px;">
                                         <li>Ve a "APIs y servicios" > "Biblioteca"</li>
@@ -466,24 +723,17 @@ window.GoogleSheetsManager = {
                                 </li>
                                 <li><strong>Crea credenciales:</strong>
                                     <ul style="margin: 5px 0; padding-left: 15px;">
-                                        <li>Ve a "APIs y servicios" > "Credenciales"</li>
-                                        <li>Clic en "+ CREAR CREDENCIALES"</li>
-                                        <li>Selecciona "Clave de API" (para API Key)</li>
-                                        <li>Selecciona "ID de cliente de OAuth 2.0" (para Client ID)</li>
+                                        <li>Crea una "Clave de API" (para API Key)</li>
+                                        <li>Crea un "ID de cliente de OAuth 2.0" (para Client ID)</li>
                                     </ul>
                                 </li>
                                 <li><strong>Configura OAuth 2.0:</strong>
                                     <ul style="margin: 5px 0; padding-left: 15px;">
                                         <li>Tipo de aplicación: "Aplicación web"</li>
                                         <li><strong>Orígenes autorizados:</strong> <code>${currentOrigin}</code></li>
-                                        <li><strong>URI de redirección:</strong> <code>${currentOrigin}</code></li>
                                     </ul>
                                 </li>
                             </ol>
-                            <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-top: 10px;">
-                                <strong>⚠️ Importante:</strong> Copia exactamente esta URL como origen autorizado:<br>
-                                <code style="background: #f8f9fa; padding: 2px 5px; border-radius: 3px;">${currentOrigin}</code>
-                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -547,9 +797,9 @@ window.GoogleSheetsManager = {
         }
         
         this.setCredentials(apiKey, clientId, spreadsheetId);
-        this.config.isInitialized = false; // Forzar reinicialización
         
         Utils.showNotification('Configuración guardada exitosamente', 'success');
+        this.updateUIStatus();
         this.closeConfigModal();
     },
     
@@ -575,15 +825,11 @@ window.GoogleSheetsManager = {
             }
             
             // Configurar temporalmente
-            const previousApiKey = this.config.apiKey;
-            const previousClientId = this.config.clientId;
-            const previousInitialized = this.config.isInitialized;
-            
             this.config.apiKey = apiKey;
             this.config.clientId = clientId;
             this.config.isInitialized = false;
             
-            console.log('🔍 [SHEETS] Probando configuración...');
+            console.log('🔍 [SHEETS] Probando configuración con GIS...');
             console.log('🔍 [SHEETS] API Key:', apiKey.substring(0, 10) + '...');
             console.log('🔍 [SHEETS] Client ID:', clientId.substring(0, 20) + '...');
             console.log('🔍 [SHEETS] Origen actual:', window.location.origin);
@@ -643,7 +889,7 @@ window.GoogleSheetsManager = {
      * Diagnóstico completo del sistema
      */
     runDiagnostics: function() {
-        console.group('🔍 [SHEETS] Diagnóstico del Sistema');
+        console.group('🔍 [SHEETS] Diagnóstico del Sistema GIS');
         
         // Información del entorno
         console.log('🌐 Entorno:');
@@ -673,10 +919,14 @@ window.GoogleSheetsManager = {
         // APIs disponibles
         console.log('🛠️ APIs:');
         console.log('  Google API cargada:', typeof window.gapi !== 'undefined' ? '✅' : '❌');
-        console.log('  Google Auth disponible:', 
-            typeof window.gapi !== 'undefined' && 
-            window.gapi.auth2 ? '✅' : '❌'
+        console.log('  Google Identity Services disponible:', 
+            typeof window.google !== 'undefined' && 
+            window.google.accounts ? '✅' : '❌'
         );
+        
+        // Nuevo en GIS: verificar cliente de tokens
+        console.log('  Token Client inicializado:', !!this.config.tokenClient ? '✅' : '❌');
+        console.log('  Access Token presente:', !!this.config.accessToken ? '✅' : '❌');
         
         // Recomendaciones
         console.log('💡 Recomendaciones:');
@@ -697,6 +947,7 @@ window.GoogleSheetsManager = {
         } else if (this.config.apiKey && this.config.clientId && isValidProtocol) {
             console.error('  🎯 PROBLEMA PRINCIPAL: Origen no autorizado en Google Cloud');
             console.log(`  🔧 SOLUCIÓN: Agregar '${window.location.origin}' en Google Cloud Console`);
+            console.log('  📖 GUÍA: https://console.cloud.google.com/apis/credentials');
         }
         
         console.groupEnd();
@@ -705,6 +956,7 @@ window.GoogleSheetsManager = {
             protocol: isValidProtocol,
             configured: !!(this.config.apiKey && this.config.clientId),
             apis: typeof window.gapi !== 'undefined',
+            gis: typeof window.google !== 'undefined' && window.google.accounts,
             recommendations: {
                 needsHTTPS: !isValidProtocol,
                 needsCredentials: !(this.config.apiKey && this.config.clientId),
@@ -717,4 +969,4 @@ window.GoogleSheetsManager = {
 // Cargar credenciales al inicializar
 GoogleSheetsManager.loadCredentials();
 
-console.log('✅ Google Sheets Manager cargado correctamente');
+console.log('✅ Google Sheets Manager (GIS) cargado correctamente');
