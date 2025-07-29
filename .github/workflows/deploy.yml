@@ -41,7 +41,7 @@ jobs:
         echo "🔍 Validating JavaScript files..."
         
         # Check if all required JS files exist
-        required_files=("js/utils.js" "js/app.js" "js/numbers.js" "js/admin.js" "js/reports.js" "js/backup.js" "js/supabase.js")
+        required_files=("js/utils.js" "js/app.js" "js/numbers-main.js" "js/numbers-interface.js" "js/numbers-info.js" "js/numbers-purchase.js" "js/numbers-assignment.js" "js/admin.js" "js/reports.js" "js/backup.js" "js/supabase.js")
         
         for file in "${required_files[@]}"; do
           if [ ! -f "$file" ]; then
