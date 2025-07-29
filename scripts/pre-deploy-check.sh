@@ -38,10 +38,10 @@ for module in "${required_modules[@]}"; do
 done
 
 echo ""
-echo "🔧 2. Verificando sintaxis de JavaScript..."
+echo "🔧 2. Verificando sintaxis de JavaScript (excluyendo backups)..."
 
 for js_file in js/numbers-*.js; do
-    if [ -f "$js_file" ]; then
+    if [ -f "$js_file" ] && [[ "$js_file" != *"-backup.js" ]] && [[ "$js_file" != *"-old-backup.js" ]]; then
         if node -c "$js_file" 2>/dev/null; then
             echo -e "  ${GREEN}✅${NC} $js_file - sintaxis OK"
         else
@@ -78,8 +78,8 @@ else
     echo -e "  ${GREEN}✅${NC} js/numbers.js correctamente removido"
 fi
 
-if [ -f "js/numbers-old-backup.js" ]; then
-    echo -e "  ${GREEN}✅${NC} Backup encontrado en js/numbers-old-backup.js"
+if [ -f "backups/refactoring/numbers-original.js" ]; then
+    echo -e "  ${GREEN}✅${NC} Backup encontrado en backups/refactoring/numbers-original.js"
 else
     echo -e "  ${YELLOW}⚠️${NC} No se encuentra backup del archivo original"
 fi

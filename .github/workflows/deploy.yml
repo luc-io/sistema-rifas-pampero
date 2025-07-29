@@ -50,9 +50,9 @@ jobs:
           fi
         done
         
-        # Basic syntax check for JS files
+        # Basic syntax check for JS files (exclude backups)
         for js_file in js/*.js; do
-          if [ -f "$js_file" ]; then
+          if [ -f "$js_file" ] && [[ "$js_file" != *"-backup.js" ]] && [[ "$js_file" != *"-old-backup.js" ]]; then
             echo "Checking syntax: $js_file"
             node -c "$js_file" || exit 1
           fi
