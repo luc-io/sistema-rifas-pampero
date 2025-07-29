@@ -14,7 +14,18 @@ window.NumbersAssignment = {
         }
 
         // Calcular fecha de rendición (24 horas antes del sorteo)
-        const sorteoDate = new Date(AppState.raffleConfig.drawDate);
+        let sorteoDate;
+        try {
+            sorteoDate = new Date(AppState.raffleConfig.drawDate);
+            if (isNaN(sorteoDate.getTime())) {
+                throw new Error('Fecha de sorteo inválida');
+            }
+        } catch (error) {
+            console.error('❌ Error con fecha de sorteo:', error);
+            Utils.showNotification('Error: Fecha de sorteo no válida. Configura la rifa nuevamente.', 'error');
+            return;
+        }
+        
         const rendicionDate = new Date(sorteoDate.getTime() - 24 * 60 * 60 * 1000);
         const rendicionDateString = rendicionDate.toISOString().slice(0, 16);
 

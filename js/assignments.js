@@ -7,8 +7,15 @@ const AssignmentsManager = {
      * Crear interfaz de asignaciones
      */
     createInterface: function() {
+        // Verificar si existe el contenedor (compatible con refactoring)
+        const container = document.getElementById('assignmentsContent');
+        if (!container) {
+            console.log('ℹ️ [ASSIGNMENTS] Contenedor no encontrado - funcionalidad integrada en números');
+            return;
+        }
+
         if (!AppState.raffleConfig) {
-            document.getElementById('assignmentsContent').innerHTML = `
+            container.innerHTML = `
                 <div class="setup-needed">
                     <h3>🎯 Configura tu rifa primero</h3>
                     <p>Ve a la pestaña "Configurar" para crear tu rifa</p>

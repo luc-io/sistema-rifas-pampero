@@ -633,8 +633,10 @@ window.SupabaseManager = {
                     numbers: assignment.numbers,
                     total_amount: assignment.total_amount,
                     status: assignment.status,
-                    assigned_at: assignment.assigned_at.toISOString(),
-                    payment_deadline: assignment.payment_deadline ? assignment.payment_deadline.toISOString() : null,
+                    assigned_at: typeof assignment.assigned_at === 'string' ? assignment.assigned_at : assignment.assigned_at.toISOString(),
+                    payment_deadline: assignment.payment_deadline ? 
+                        (typeof assignment.payment_deadline === 'string' ? assignment.payment_deadline : assignment.payment_deadline.toISOString()) 
+                        : null,
                     notes: assignment.notes
                 }])
                 .select();
@@ -671,7 +673,7 @@ window.SupabaseManager = {
                     owner_email: owner.owner_email,
                     owner_instagram: owner.owner_instagram,
                     membership_area: owner.membership_area,
-                    edited_at: owner.edited_at.toISOString()
+                    edited_at: typeof owner.edited_at === 'string' ? owner.edited_at : owner.edited_at.toISOString()
                 }])
                 .select();
                 
@@ -800,7 +802,54 @@ window.SupabaseManager = {
             return true;
             
         } catch (error) {
-            console.error('❌ [SUPABASE] Error actualizando asignación:', error);
+            console.error(`❌ [SUPABASE] Error actualizando asignación:`, error);
+            throw error;
+        }
+    },
+
+    /**
+     * Actualizar titular de número
+     */
+    updateNumberOwner: async function(ownerId, updateData) {
+        if (!this.isConnected) {
+            throw new Error('Supabase no conectado');
+        }
+        
+        try {
+            // Convertir fechas si es necesario
+            const dataToUpdate = {
+                ...updateData,
+                edited_at: typeof updateData.edited_at === 'string' ? updateData.edited_at : updateData.edited_at?.toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            
+            const { error } = await this.client
+                .from('number_owners')
+                .update(dataToUpdate)
+                .eq('id', ownerId);
+                
+            if (error) throw error;
+            
+            // Actualizar estado local
+            const owner = AppState.numberOwners?.find(o => o.id == ownerId);
+            if (owner) {
+                Object.assign(owner, {
+                    name: updateData.owner_name || owner.name,
+                    lastname: updateData.owner_lastname || owner.lastname,
+                    phone: updateData.owner_phone || owner.phone,
+                    email: updateData.owner_email || owner.email,
+                    instagram: updateData.owner_instagram || owner.instagram,
+                    membership_area: updateData.membership_area || owner.membership_area,
+                    edited_at: dataToUpdate.edited_at
+                });
+                console.log(`✅ [SUPABASE] Titular ${ownerId} actualizado en memoria local`);
+            }
+            
+            console.log(`✅ [SUPABASE] Titular ${ownerId} actualizado en Supabase`);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ [SUPABASE] Error actualizando titular:', error);
             throw error;
         }
     },
