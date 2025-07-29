@@ -41,7 +41,7 @@ jobs:
         echo "🔍 Validating JavaScript files..."
         
         # Check if all required JS files exist
-        required_files=("js/utils.js" "js/app.js" "js/numbers-main.js" "js/numbers-interface.js" "js/numbers-info.js" "js/numbers-purchase.js" "js/numbers-assignment.js" "js/admin.js" "js/reports.js" "js/backup.js" "js/supabase.js")
+        required_files=("js/config.js" "js/utils.js" "js/utilities.js" "js/assignment-validation.js" "js/app.js" "js/numbers-main.js" "js/numbers-interface.js" "js/numbers-info.js" "js/numbers-purchase.js" "js/numbers-assignment.js" "js/admin.js" "js/reports.js" "js/backup.js" "js/supabase-core.js" "js/supabase-assignments.js" "js/supabase-refactored.js" "js/google-sheets.js" "js/system-verifier.js")
         
         for file in "${required_files[@]}"; do
           if [ ! -f "$file" ]; then
@@ -85,8 +85,19 @@ jobs:
           echo "⚠️ Warning: Supabase not configured in index.html"
         fi
         
-        if ! grep -q "SupabaseManager" js/supabase.js; then
-          echo "❌ SupabaseManager not found in supabase.js"
+        if ! grep -q "SupabaseManager" js/supabase-refactored.js; then
+          echo "❌ SupabaseManager not found in supabase-refactored.js"
+          exit 1
+        fi
+        
+        # Verify the refactored modules
+        if ! grep -q "SupabaseCoreManager" js/supabase-core.js; then
+          echo "❌ SupabaseCoreManager not found in supabase-core.js"
+          exit 1
+        fi
+        
+        if ! grep -q "SupabaseAssignmentsManager" js/supabase-assignments.js; then
+          echo "❌ SupabaseAssignmentsManager not found in supabase-assignments.js"
           exit 1
         fi
         
