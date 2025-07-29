@@ -481,6 +481,25 @@ function initializeInterfaces() {
         document.getElementById('raffleSubtitle').textContent = 
             `${AppState.raffleConfig.organization} - ${AppState.raffleConfig.price} por número - Sorteo: ${drawDateFormatted}`;
         
+        // 🔧 IMPORTANTE: Mostrar pestaña de números en lugar de configuración
+        // al detectar rifa activa
+        const setupTab = document.querySelector('.tab[onclick="showTab(\'setup\')"]');
+        const numbersTab = document.querySelector('.tab[onclick="showTab(\'numbers\')"]');
+        const setupContent = document.getElementById('setup');
+        const numbersContent = document.getElementById('numbers');
+        
+        if (setupTab && numbersTab && setupContent && numbersContent) {
+            // Quitar active de setup
+            setupTab.classList.remove('active');
+            setupContent.classList.remove('active');
+            
+            // Activar números
+            numbersTab.classList.add('active');
+            numbersContent.classList.add('active');
+            
+            console.log('✅ [INIT] Cambiado automáticamente a pestaña Números (rifa activa detectada)');
+        }
+        
         // Crear interfaces
         if (typeof NumbersManager !== 'undefined') {
             NumbersManager.init();
@@ -505,6 +524,8 @@ function initializeInterfaces() {
         }
         
         console.log('✅ [INIT] Interfaces inicializadas');
+    } else {
+        console.log('ℹ️ [INIT] No hay rifa configurada, permaneciendo en pestaña Configurar');
     }
 }
 

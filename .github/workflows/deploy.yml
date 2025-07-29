@@ -41,7 +41,7 @@ jobs:
         echo "🔍 Validating JavaScript files..."
         
         # Check if all required JS files exist
-        required_files=("js/config.js" "js/utils.js" "js/utilities.js" "js/assignment-validation.js" "js/app.js" "js/numbers-main.js" "js/numbers-interface.js" "js/numbers-info.js" "js/numbers-purchase.js" "js/numbers-assignment.js" "js/admin.js" "js/reports.js" "js/backup.js" "js/supabase-core.js" "js/supabase-assignments.js" "js/supabase-refactored.js" "js/google-sheets.js" "js/system-verifier.js")
+        required_files=("js/config.js" "js/utils.js" "js/utilities.js" "js/assignment-validation.js" "js/app.js" "js/numbers-main.js" "js/numbers-interface.js" "js/numbers-info.js" "js/numbers-purchase.js" "js/numbers-assignment.js" "js/admin-validation.js" "js/admin-stats.js" "js/admin-sales.js" "js/admin-reservations.js" "js/admin.js" "js/reports.js" "js/backup.js" "js/supabase-core.js" "js/supabase-assignments.js" "js/supabase-refactored.js" "js/google-sheets.js" "js/system-verifier.js")
         
         for file in "${required_files[@]}"; do
           if [ ! -f "$file" ]; then
