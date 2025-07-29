@@ -151,7 +151,7 @@ window.NumbersAssignment = {
                 numbers: [...AppState.selectedNumbers],
                 total_amount: totalAmount,
                 status: 'assigned',
-                assigned_at: new Date().toISOString(),
+                assigned_at: new Date(),
                 payment_deadline: deadline,
                 notes: notes || null,
                 payment_method: 'pending',
@@ -173,8 +173,8 @@ window.NumbersAssignment = {
                 email: email || '',
                 instagram: '',
                 membership_area: '',
-                edited_at: new Date().toISOString(),
-                created_at: new Date().toISOString()
+                edited_at: new Date(),
+                created_at: new Date()
             }));
 
             // Guardar en base de datos
@@ -472,7 +472,7 @@ window.NumbersAssignment = {
                 email: email,
                 instagram: instagram,
                 membership_area: membershipArea,
-                edited_at: new Date().toISOString()
+                edited_at: new Date()
             };
             
             // Actualizar en memoria local
@@ -487,7 +487,7 @@ window.NumbersAssignment = {
                     owner_email: email,
                     owner_instagram: instagram,
                     membership_area: membershipArea,
-                    edited_at: updatedOwnerData.edited_at
+                    edited_at: updatedOwnerData.edited_at.toISOString()
                 };
                 await window.SupabaseManager.updateNumberOwner(owner.id, supabaseData);
             }
