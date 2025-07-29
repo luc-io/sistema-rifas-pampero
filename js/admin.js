@@ -35,15 +35,20 @@ window.AdminManager = {
                 </div>
             </div>
 
-            <h3>Reservas Activas</h3>
+            <h3>📋 Asignaciones Activas</h3>
+            <div class="sales-list" id="assignmentsList">
+                <p style="text-align: center; color: #6c757d; padding: 20px;">No hay asignaciones activas</p>
+            </div>
+
+            <h3>⏰ Reservas Activas</h3>
             <div class="sales-list" id="reservationsList">
                 <p style="text-align: center; color: #6c757d; padding: 20px;">No hay reservas activas</p>
             </div>
 
-            <h3>Búsqueda de Ventas</h3>
+            <h3>🔍 Búsqueda de Ventas</h3>
             <input type="text" class="search-box" id="searchBox" placeholder="Buscar por nombre, teléfono o número..." onkeyup="AdminManager.filterSales()">
 
-            <h3>Lista de Ventas</h3>
+            <h3>💰 Lista de Ventas</h3>
             <div class="sales-list" id="salesList">
                 <p style="text-align: center; color: #6c757d; padding: 20px;">No hay ventas registradas aún</p>
             </div>
@@ -146,6 +151,7 @@ window.AdminManager = {
 
         this.updateSalesList();
         this.updateReservationsList();
+        this.updateAssignmentsList();
     },
 
     /**
@@ -205,6 +211,73 @@ window.AdminManager = {
         `;
         }).join('');
     },
+
+    /**
+     * Actualizar lista de asignaciones
+     */
+    updateAssignmentsList: function() {
+        const container = document.getElementById('assignmentsList');
+        if (!container) return;
+
+        const activeAssignments = AppState.assignments?.filter(a => a.status === 'assigned') || [];
+        
+        if (activeAssignments.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">No hay asignaciones activas</p>';
+            return;
+        }
+
+        container.innerHTML = activeAssignments.map(assignment => {
+            const numbersFormatted = assignment.numbers.map(n => Utils.formatNumber(n));
+            const timeLeft = Utils.getTimeLeft(assignment.payment_deadline);
+            const isExpiringSoon = timeLeft.hours < 2;
+            
+            // 🛡️ Verificar si números ya están vendidos o reservados
+            const validation = this.validateNumbersNotSold(assignment.numbers);
+            const hasConflict = !validation.isValid;
+            
+            return `
+            <div class="sale-item" style="border-left: 4px solid ${hasConflict ? '#dc3545' : isExpiringSoon ? '#dc3545' : '#17a2b8'};">
+                <div class="sale-header">
+                    <strong>${assignment.seller_name} ${assignment.seller_lastname}</strong>
+                    <span class="payment-status ${hasConflict ? 'error' : 'pending'}">
+                        ${hasConflict ? '🚫 Conflicto' : '📋 Asignado'}
+                    </span>
+                </div>
+                ${hasConflict ? `<div style="color: #dc3545; font-weight: bold; margin: 5px 0;">⚠️ Números ya vendidos: ${validation.duplicates.map(n => Utils.formatNumber(n)).join(', ')}</div>` : ''}
+                <div>📞 ${assignment.seller_phone}</div>
+                ${assignment.seller_email ? `<div>📧 ${assignment.seller_email}</div>` : ''}
+                ${assignment.notes ? `<div style="margin: 5px 0; font-size: 14px; color: #666;">📝 ${assignment.notes}</div>` : ''}
+                <div class="sale-numbers">
+                    ${numbersFormatted.map(num => `<span class="sale-number ${validation.duplicates.includes(parseInt(num.replace(/\D/g, ''))) ? 'conflict' : ''}">${num}</span>`).join('')}
+                </div>
+                <div style="display: flex; justify-content: space-between; margin: 8px 0;">
+                    <span>💰 Total: ${Utils.formatPrice(assignment.total_amount)}</span>
+                    <span>📊 ${assignment.numbers.length} números</span>
+                </div>
+                <div style="margin: 8px 0; font-weight: 600; color: ${isExpiringSoon ? '#dc3545' : '#856404'};">
+                    ⏰ Límite: ${Utils.formatDateTime(assignment.payment_deadline)}
+                    ${isExpiringSoon ? ` (${timeLeft.hours}h ${timeLeft.minutes}m)` : ''}
+                </div>
+                <div class="admin-actions">
+                    <button class="btn btn-small" onclick="AdminManager.confirmAssignment('${assignment.id}', 'efectivo')" 
+                            ${this.validateNumbersNotSold(assignment.numbers).isValid ? '' : 'disabled title="Números ya vendidos"'}>
+                        ✅ Cobrar Efectivo
+                    </button>
+                    <button class="btn btn-small" onclick="AdminManager.confirmAssignment('${assignment.id}', 'transferencia')"
+                            ${this.validateNumbersNotSold(assignment.numbers).isValid ? '' : 'disabled title="Números ya vendidos"'}>
+                        🏦 Cobrar Transferencia
+                    </button>
+                    <button class="btn btn-secondary btn-small" onclick="AdminManager.editAssignment('${assignment.id}')">✏️ Editar</button>
+                    <button class="btn btn-secondary btn-small" onclick="AdminManager.changeAssignmentHolder('${assignment.id}')">👥 Cambiar Titular</button>
+                    <button class="btn btn-secondary btn-small" onclick="AdminManager.cancelAssignment('${assignment.id}')">❌ Cancelar</button>
+                </div>
+            </div>
+        `;
+        }).join('');
+    },
+
+    /**
+     * Validar que números no estén ya vendidos
 
     /**
      * Validar que números no estén ya vendidos
@@ -526,6 +599,178 @@ window.AdminManager = {
         } catch (error) {
             console.error('❌ [ADMIN] Error marcando pago:', error);
             Utils.showNotification('Error actualizando el pago', 'error');
+        }
+    },
+
+    /**
+     * Cambiar titular de una asignación
+     */
+    changeAssignmentHolder: async function(assignmentId) {
+        console.log(`🔍 [ADMIN] Cambiando titular para asignación ID: ${assignmentId}`);
+        
+        // Buscar la asignación
+        const assignment = AppState.assignments?.find(a => a.id == assignmentId);
+        if (!assignment) {
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
+
+        // Crear modal para cambiar titular
+        const modalHtml = `
+            <div id="changeHolderModal" class="modal" style="display: block;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>👥 Cambiar Titular de Asignación</h3>
+                        <span class="modal-close" onclick="AdminManager.closeChangeHolderModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="info-section">
+                            <h4>📋 Asignación actual:</h4>
+                            <div class="assignment-details">
+                                <p><strong>Vendedor actual:</strong> ${assignment.seller_name} ${assignment.seller_lastname}</p>
+                                <p><strong>Teléfono:</strong> ${assignment.seller_phone}</p>
+                                <p><strong>Números:</strong> ${assignment.numbers.map(n => Utils.formatNumber(n)).join(', ')}</p>
+                                <p><strong>Total:</strong> ${Utils.formatPrice(assignment.total_amount)}</p>
+                                ${assignment.notes ? `<p><strong>Notas:</strong> ${assignment.notes}</p>` : ''}
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="newHolderName">Nuevo Nombre *</label>
+                            <input type="text" id="newHolderName" placeholder="Nombre del nuevo responsable" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="newHolderLastName">Nuevo Apellido *</label>
+                            <input type="text" id="newHolderLastName" placeholder="Apellido del nuevo responsable" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="newHolderPhone">Nuevo Teléfono *</label>
+                            <input type="tel" id="newHolderPhone" placeholder="Teléfono del nuevo responsable" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="newHolderEmail">Nuevo Email (opcional)</label>
+                            <input type="email" id="newHolderEmail" placeholder="Email del nuevo responsable">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="changeReason">Motivo del cambio (opcional)</label>
+                            <textarea id="changeReason" rows="2" placeholder="Explicación del cambio de titular..."></textarea>
+                        </div>
+
+                        <div class="modal-footer" style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn btn-secondary" onclick="AdminManager.closeChangeHolderModal()">Cancelar</button>
+                            <button class="btn btn-primary" onclick="AdminManager.saveChangeHolder('${assignmentId}')">💾 Guardar Cambio</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remover modal existente si hay uno
+        const existingModal = document.getElementById('changeHolderModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    /**
+     * Guardar cambio de titular
+     */
+    saveChangeHolder: async function(assignmentId) {
+        const newName = document.getElementById('newHolderName').value.trim();
+        const newLastName = document.getElementById('newHolderLastName').value.trim();
+        const newPhone = document.getElementById('newHolderPhone').value.trim();
+        const newEmail = document.getElementById('newHolderEmail').value.trim();
+        const reason = document.getElementById('changeReason').value.trim();
+
+        if (!newName || !newLastName || !newPhone) {
+            Utils.showNotification('Completa los campos obligatorios', 'error');
+            return;
+        }
+
+        const assignment = AppState.assignments?.find(a => a.id == assignmentId);
+        if (!assignment) {
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
+
+        try {
+            // Crear objeto con la información anterior para auditoría
+            const previousHolder = {
+                name: assignment.seller_name,
+                lastname: assignment.seller_lastname,
+                phone: assignment.seller_phone,
+                email: assignment.seller_email
+            };
+
+            // Actualizar asignación
+            const updatedAssignment = {
+                ...assignment,
+                seller_name: newName,
+                seller_lastname: newLastName,
+                seller_phone: newPhone,
+                seller_email: newEmail || null,
+                notes: reason ? `${assignment.notes || ''}\n[Cambio de titular: ${reason}]`.trim() : assignment.notes
+            };
+
+            // Actualizar en Supabase
+            if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                await window.SupabaseManager.updateAssignment(assignmentId, {
+                    seller_name: newName,
+                    seller_lastname: newLastName,
+                    seller_phone: newPhone,
+                    seller_email: newEmail || null,
+                    notes: updatedAssignment.notes
+                });
+                console.log('✅ [ADMIN] Titular actualizado en Supabase');
+            } else {
+                // Actualizar localmente
+                const index = AppState.assignments.findIndex(a => a.id == assignmentId);
+                if (index !== -1) {
+                    AppState.assignments[index] = updatedAssignment;
+                    await autoSave();
+                    console.log('📱 [ADMIN] Titular actualizado en localStorage');
+                }
+            }
+
+            // Actualizar UI
+            this.updateAssignmentsList();
+            this.closeChangeHolderModal();
+
+            Utils.showNotification(`✅ Titular actualizado exitosamente`, 'success');
+
+            // Generar mensaje para WhatsApp
+            const numbersFormatted = assignment.numbers.map(n => Utils.formatNumber(n)).join(', ');
+            const whatsappMessage = `🔄 *CAMBIO DE TITULAR*\n\n` +
+                `Asignación: ${numbersFormatted}\n` +
+                `Nuevo titular: ${newName} ${newLastName}\n` +
+                `Teléfono: ${newPhone}\n` +
+                `Total: ${Utils.formatPrice(assignment.total_amount)}\n` +
+                `${reason ? `Motivo: ${reason}` : ''}`;
+
+            if (confirm('¿Deseas enviar notificación por WhatsApp?')) {
+                const whatsappUrl = `https://wa.me/${NumbersManager.formatPhoneForWhatsApp(newPhone)}?text=${encodeURIComponent(whatsappMessage)}`;
+                window.open(whatsappUrl, '_blank');
+            }
+
+        } catch (error) {
+            console.error('❌ [ADMIN] Error cambiando titular:', error);
+            Utils.showNotification('Error al cambiar titular', 'error');
+        }
+    },
+
+    /**
+     * Cerrar modal de cambio de titular
+     */
+    closeChangeHolderModal: function() {
+        const modal = document.getElementById('changeHolderModal');
+        if (modal) {
+            modal.remove();
         }
     },
 

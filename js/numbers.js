@@ -43,8 +43,9 @@ window.NumbersManager = {
                 <h3>Tu selección</h3>
                 <div id="selectedNumbersList" class="selected-numbers"></div>
                 <div class="total-price" id="totalPrice"></div>
-                <button class="btn" onclick="NumbersManager.openPurchaseModal('buy')" style="width: calc(50% - 5px);">💰 Comprar Ahora</button>
-                <button class="btn btn-secondary" onclick="NumbersManager.openPurchaseModal('reserve')" style="width: calc(50% - 5px); background: #ffc107; color: #000;">⏰ Reservar</button>
+                <button class="btn" onclick="NumbersManager.openPurchaseModal('buy')" style="width: calc(33% - 3px);">💰 Comprar</button>
+                <button class="btn btn-secondary" onclick="NumbersManager.openPurchaseModal('reserve')" style="width: calc(33% - 3px); background: #ffc107; color: #000;">⏰ Reservar</button>
+                <button class="btn btn-info" onclick="NumbersManager.openAssignmentModal()" style="width: calc(33% - 3px); background: #17a2b8;">🎯 Asignar</button>
                 <button class="btn btn-secondary" onclick="NumbersManager.clearSelection()">Limpiar Selección</button>
             </div>
 
@@ -1280,6 +1281,246 @@ window.NumbersManager = {
                 AdminManager.updateInterface();
             }
         }
+    },
+
+    /**
+     * Abrir modal de asignación de números
+     */
+    openAssignmentModal: function() {
+        if (this.selectedNumbers.length === 0) {
+            Utils.showNotification('Selecciona al menos un número para asignar', 'warning');
+            return;
+        }
+
+        const modalHtml = `
+            <div id="assignmentModal" class="modal" style="display: block;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>🎯 Asignar Números</h3>
+                        <span class="modal-close" onclick="NumbersManager.closeAssignmentModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="selection-summary" style="margin-bottom: 20px;">
+                            <h4>Números a asignar:</h4>
+                            <div class="selected-numbers" id="assignmentNumbers">
+                                ${this.selectedNumbers.map(n => Utils.formatNumber(n)).join(', ')}
+                            </div>
+                            <div class="total-price">
+                                Total: ${Utils.formatPrice(this.selectedNumbers.length * AppState.raffleConfig.pricePerNumber)}
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="assigneeName">Nombre del Responsable *</label>
+                            <input type="text" id="assigneeName" required autocomplete="off" 
+                                   oninput="NumbersManager.searchExistingAssignees()" onblur="NumbersManager.clearAssigneeSuggestions()">
+                            <div id="assigneeSuggestions" class="buyer-suggestions" style="display: none;"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="assigneeLastName">Apellido del Responsable *</label>
+                            <input type="text" id="assigneeLastName" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="assigneePhone">Teléfono del Responsable *</label>
+                            <input type="tel" id="assigneePhone" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="assigneeEmail">Email del Responsable (opcional)</label>
+                            <input type="email" id="assigneeEmail">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="assignmentNotes">Notas (opcional)</label>
+                            <textarea id="assignmentNotes" rows="2" placeholder="Notas adicionales sobre esta asignación..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="assignmentDeadline">Fecha límite de pago</label>
+                            <input type="datetime-local" id="assignmentDeadline"
+                                   value="${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)}">
+                        </div>
+
+                        <div class="payment-buttons" style="display: flex; gap: 10px; margin: 20px 0;">
+                            <button class="btn btn-info" onclick="NumbersManager.completeAssignment()" style="flex: 1;">🎯 Asignar Números</button>
+                            <button class="btn btn-secondary" onclick="NumbersManager.closeAssignmentModal()" style="flex: 1;">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remover modal existente si hay uno
+        const existingModal = document.getElementById('assignmentModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Establecer fecha mínima como mañana
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        document.getElementById('assignmentDeadline').min = tomorrow.toISOString().slice(0, 16);
+    },
+
+    /**
+     * Cerrar modal de asignación
+     */
+    closeAssignmentModal: function() {
+        const modal = document.getElementById('assignmentModal');
+        if (modal) {
+            modal.remove();
+        }
+    },
+
+    /**
+     * Completar asignación de números
+     */
+    completeAssignment: async function() {
+        try {
+            const name = document.getElementById('assigneeName').value.trim();
+            const lastName = document.getElementById('assigneeLastName').value.trim();
+            const phone = document.getElementById('assigneePhone').value.trim();
+            const email = document.getElementById('assigneeEmail').value.trim();
+            const notes = document.getElementById('assignmentNotes').value.trim();
+            const deadline = document.getElementById('assignmentDeadline').value;
+
+            if (!name || !lastName || !phone) {
+                Utils.showNotification('Completa los campos obligatorios', 'error');
+                return;
+            }
+
+            if (this.selectedNumbers.length === 0) {
+                Utils.showNotification('Selecciona al menos un número', 'error');
+                return;
+            }
+
+            const totalAmount = this.selectedNumbers.length * AppState.raffleConfig.pricePerNumber;
+
+            const assignment = {
+                id: Utils.generateId(),
+                seller_name: name,
+                seller_lastname: lastName,
+                seller_phone: phone,
+                seller_email: email || null,
+                numbers: [...this.selectedNumbers],
+                total_amount: totalAmount,
+                status: 'assigned',
+                assigned_at: new Date().toISOString(),
+                payment_deadline: deadline || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                notes: notes || null,
+                payment_method: 'pending',
+                raffle_id: AppState.raffleConfig.id
+            };
+
+            // Agregar a asignaciones locales
+            if (!AppState.assignments) AppState.assignments = [];
+            AppState.assignments.push(assignment);
+
+            // Guardar en Supabase si está disponible
+            if (window.SupabaseManager?.isConnected) {
+                await SupabaseManager.createAssignment(assignment);
+            }
+
+            // Marcar números como asignados
+            this.selectedNumbers.forEach(number => {
+                const numberElement = document.querySelector(`[data-number="${number}"]`);
+                if (numberElement) {
+                    numberElement.classList.add('assigned');
+                    numberElement.classList.remove('selected');
+                }
+            });
+
+            this.clearSelection();
+            this.closeAssignmentModal();
+
+            Utils.showNotification(`✅ ${this.selectedNumbers.length} números asignados a ${name} ${lastName}`, 'success');
+
+            // Actualizar interfaz si está disponible
+            if (AssignmentsManager?.updateInterface) {
+                AssignmentsManager.updateInterface();
+            }
+
+        } catch (error) {
+            console.error('❌ Error asignando números:', error);
+            Utils.showNotification('Error al asignar números', 'error');
+        }
+    },
+
+    /**
+     * Buscar asignantes existentes para autocompletar
+     */
+    searchExistingAssignees: function() {
+        const searchTerm = document.getElementById('assigneeName').value.toLowerCase();
+        const suggestionsDiv = document.getElementById('assigneeSuggestions');
+        
+        if (searchTerm.length < 2) {
+            suggestionsDiv.innerHTML = '';
+            suggestionsDiv.style.display = 'none';
+            return;
+        }
+
+        // Buscar en asignaciones existentes
+        const assigneeMap = new Map();
+
+        AppState.assignments?.forEach(assignment => {
+            const fullName = `${assignment.seller_name} ${assignment.seller_lastname}`.toLowerCase();
+            const key = fullName;
+            
+            if (fullName.includes(searchTerm)) {
+                if (!assigneeMap.has(key)) {
+                    assigneeMap.set(key, {
+                        name: assignment.seller_name,
+                        lastname: assignment.seller_lastname,
+                        phone: assignment.seller_phone,
+                        email: assignment.seller_email
+                    });
+                }
+            }
+        });
+
+        const suggestions = Array.from(assigneeMap.values()).slice(0, 5);
+        
+        if (suggestions.length === 0) {
+            suggestionsDiv.style.display = 'none';
+            return;
+        }
+
+        suggestionsDiv.innerHTML = suggestions.map(suggestion => `
+            <div class="buyer-suggestion" onclick="NumbersManager.selectExistingAssignee('${suggestion.name}', '${suggestion.lastname}', '${suggestion.phone}', '${suggestion.email || ''}')">
+                <div class="buyer-name">${suggestion.name} ${suggestion.lastname}</div>
+                <div class="buyer-details">${suggestion.phone} ${suggestion.email ? `• ${suggestion.email}` : ''}</div>
+            </div>
+        `).join('');
+        
+        suggestionsDiv.style.display = 'block';
+    },
+
+    /**
+     * Seleccionar asignante existente
+     */
+    selectExistingAssignee: function(name, lastname, phone, email) {
+        document.getElementById('assigneeName').value = name;
+        document.getElementById('assigneeLastName').value = lastname;
+        document.getElementById('assigneePhone').value = phone;
+        document.getElementById('assigneeEmail').value = email || '';
+        
+        this.clearAssigneeSuggestions();
+    },
+
+    /**
+     * Limpiar sugerencias de asignantes
+     */
+    clearAssigneeSuggestions: function() {
+        setTimeout(() => {
+            const suggestionsDiv = document.getElementById('assigneeSuggestions');
+            if (suggestionsDiv) {
+                suggestionsDiv.style.display = 'none';
+            }
+        }, 200);
     }
 };
 
