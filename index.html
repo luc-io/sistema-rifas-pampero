@@ -67,7 +67,7 @@
             <button class="tab" onclick="showTab('numbers')">Números</button>
             <button class="tab" onclick="showTab('admin')">Administrar</button>
             <button class="tab" onclick="showTab('reports')">Reportes</button>
-            <button class="tab" onclick="showTab('backup')">Utilidades</button>
+            <button class="tab" onclick="showTab('utilities')">Utilidades</button>
         </div>
 
         <!-- Tab: Configuración -->
@@ -139,8 +139,6 @@
             </div>
         </div>
 
-
-
         <!-- Tab: Números -->
         <div class="tab-content" id="numbers">
             <div id="numbersContent">
@@ -171,12 +169,26 @@
             </div>
         </div>
 
-        <!-- Tab: Utilidades -->
-        <div class="tab-content" id="backup">
-            <div id="backupContent">
+        <!-- Tab: Utilidades MEJORADO -->
+        <div class="tab-content" id="utilities">
+            <div id="utilitiesContent">
                 <div class="utilities-section">
                     <h3>🔧 Utilidades del Sistema</h3>
                     <p>Herramientas útiles para la gestión de tu rifa con Supabase.</p>
+                    
+                    <!-- Herramientas de Diagnóstico -->
+                    <div class="utility-group" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>🔧 Herramientas de Diagnóstico</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 15px 0;">
+                            <button class="btn btn-secondary" onclick="UtilitiesManager.validateDataIntegrity()">🔍 Verificar Integridad</button>
+                            <button class="btn btn-secondary" onclick="UtilitiesManager.testSupabaseConnection()">🌐 Test Supabase</button>
+                            <button class="btn btn-secondary" onclick="UtilitiesManager.showSystemInfo()">📊 Info del Sistema</button>
+                            <button class="btn btn-secondary" onclick="UtilitiesManager.fixDuplicates()">🔧 Corregir Duplicados</button>
+                            <button class="btn btn-secondary" onclick="UtilitiesManager.cleanExpiredReservations()">🧹 Limpiar Vencidas</button>
+                            <button class="btn btn-secondary" onclick="UtilitiesManager.checkDataConsistency()">🔄 Verificar Consistencia</button>
+                        </div>
+                        <small style="color: #666;">Herramientas avanzadas para diagnóstico y mantenimiento del sistema.</small>
+                    </div>
                     
                     <div class="utility-group" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                         <h4>📄 Exportación de Datos</h4>
@@ -200,7 +212,7 @@
                         <small style="display: block; margin-top: 10px; color: #666;">Verifica que la conexión con Supabase esté funcionando correctamente.</small>
                     </div>
                     
-                    <div class="utility-group" style="background: #fff3e0; padding: 20px; border-radius: 8px;">
+                    <div class="utility-group" style="background: #fff3e0; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                         <h4>📊 Estadísticas Rápidas</h4>
                         <div id="quickStats" style="margin: 15px 0; padding: 15px; background: white; border-radius: 8px; border: 1px solid #ddd;">
                             <div style="font-size: 14px; color: #666;">Configura tu rifa para ver estadísticas</div>
@@ -224,6 +236,19 @@
                             <button class="btn btn-primary" onclick="GoogleSheetsManager.syncAll()" id="syncSheetsBtn" disabled>🔄 Sincronizar</button>
                         </div>
                         <small style="color: #666;">Mantén tus datos sincronizados con Google Sheets para análisis externo y respaldos.</small>
+                    </div>
+                    
+                    <!-- Información del Sistema (movida desde Admin) -->
+                    <div class="utility-group" style="background: #e1f5fe; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>🔍 Información del Sistema</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 15px 0;">
+                            <button class="btn btn-info" onclick="UtilitiesManager.showSystemInfo()">📋 Ver Info Completa</button>
+                            <button class="btn btn-secondary" onclick="UtilitiesManager.checkDataConsistency()">🔄 Verificar Datos</button>
+                        </div>
+                        <div id="systemSummary" style="background: white; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 12px; color: #666;">
+                            Sistema listo para diagnóstico
+                        </div>
+                        <small style="color: #666;">Información detallada sobre el estado del sistema y verificaciones de integridad.</small>
                     </div>
                 </div>
             </div>
@@ -283,8 +308,8 @@
             </div>
 
             <div class="payment-buttons" style="display: flex; gap: 10px; margin: 20px 0;">
-                <button class="btn" onclick="NumbersManager.completePurchase('efectivo')" style="flex: 1;">💰 Comprar en Efectivo</button>
-                <button class="btn" onclick="NumbersManager.completePurchase('transferencia')" style="flex: 1; background: #2196F3;">💳 Comprar con Transferencia</button>
+                <button class="btn btn-purchase" onclick="NumbersManager.completePurchase('efectivo')" style="flex: 1;">💰 Comprar en Efectivo</button>
+                <button class="btn btn-info" onclick="NumbersManager.completePurchase('transferencia')" style="flex: 1;">💳 Comprar con Transferencia</button>
             </div>
 
             <div id="transferInfo" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 10px 0;">

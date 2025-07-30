@@ -386,6 +386,19 @@ function showTab(tabName) {
     if (tabName === 'numbers' && typeof NumbersManager !== 'undefined') {
         NumbersManager.updateDisplay();
     }
+    
+    // ✅ NUEVO: Actualizar reportes automáticamente con datos frescos
+    if (tabName === 'reports' && typeof ReportsManager !== 'undefined') {
+        console.log('📊 [TAB] Actualizando reportes con datos frescos al abrir pestaña');
+        ReportsManager.updateReports();
+    }
+    
+    // ✅ NUEVO: Actualizar utilidades al abrir la pestaña
+    if (tabName === 'utilities' && typeof UtilitiesManager !== 'undefined') {
+        console.log('🔧 [TAB] Actualizando utilidades al abrir pestaña');
+        UtilitiesManager.updateQuickStats();
+        UtilitiesManager.updateSystemSummary();
+    }
 }
 
 /**

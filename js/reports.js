@@ -1,13 +1,16 @@
 /**
  * REPORTES Y ESTADÍSTICAS - Sistema de Rifas Pampero
  * Generación de reportes simplificados y optimizados
+ * CORREGIDO: Usar datos actuales y evitar datos viejos
  */
 
 window.ReportsManager = {
     /**
-     * Actualizar todos los reportes
+     * Actualizar todos los reportes - DATOS SIEMPRE FRESCOS
      */
     updateReports: function() {
+        console.log('📊 [REPORTS] Actualizando reportes con datos frescos');
+        
         if (!AppState.raffleConfig) {
             document.getElementById('reportsContent').innerHTML = `
                 <div class="setup-needed">
@@ -18,8 +21,15 @@ window.ReportsManager = {
             return;
         }
 
+        // Forzar re-cálculo con datos actuales
+        const currentTime = new Date().toLocaleString('es-AR');
+        console.log(`📊 [REPORTS] Generando reportes a las ${currentTime} con ${AppState.sales.length} ventas`);
+
         const container = document.getElementById('reportsContent');
         container.innerHTML = `
+            <div style="background: #e8f5e8; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-size: 12px; color: #2d5016;">
+                📊 Reportes actualizados: ${currentTime} | Datos en tiempo real
+            </div>
             <div id="generalReport"></div>
             <div id="membershipReport"></div>
         `;
@@ -29,41 +39,64 @@ window.ReportsManager = {
     },
 
     /**
-     * Reporte general con gráfico de progreso
+     * Reporte general con gráfico de progreso - CORREGIDO
      */
     generateGeneralReport: function() {
+        // USAR DATOS ACTUALES directamente del AppState
         const sales = AppState.sales || [];
         const assignments = AppState.assignments || [];
+        
+        console.log(`📊 [REPORTS] Generando reporte con ${sales.length} ventas y ${assignments.length} asignaciones`);
         
         // Calcular números realmente vendidos (solo ventas confirmadas)
         const confirmedSales = sales.filter(s => s.status === 'paid');
         const pendingSales = sales.filter(s => s.status === 'pending');
         
         const totalSales = sales.length;
-        const totalNumbers = sales.reduce((sum, sale) => sum + sale.numbers.length, 0);
-        const confirmedNumbers = confirmedSales.reduce((sum, sale) => sum + sale.numbers.length, 0);
-        const pendingNumbers = pendingSales.reduce((sum, sale) => sum + sale.numbers.length, 0);
+        const totalNumbers = sales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
+        const confirmedNumbers = confirmedSales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
+        const pendingNumbers = pendingSales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
         
-        // Números en asignaciones (no vendidos aún)
-        const assignedNumbers = assignments
-            .filter(a => a.status === 'assigned')
-            .reduce((sum, assignment) => sum + assignment.numbers.length, 0);
+        // Números en asignaciones (no vendidos aún) - CORREGIDO
+        const activeAssignments = assignments.filter(a => a.status === 'assigned' || a.status === 'pending');
+        const assignedNumbers = activeAssignments.reduce((sum, assignment) => 
+            sum + (assignment.numbers ? assignment.numbers.length : 0), 0
+        );
         
-        const totalRevenue = confirmedSales.reduce((sum, sale) => sum + sale.total, 0);
-        const pendingRevenue = pendingSales.reduce((sum, sale) => sum + sale.total, 0);
+        const totalRevenue = confirmedSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
+        const pendingRevenue = pendingSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
         
-        // Calcular disponibilidad real
+        // Calcular disponibilidad real usando configuración actual
+        const currentConfig = AppState.raffleConfig;
         const occupiedNumbers = totalNumbers + assignedNumbers; // Vendidos + asignados
-        const percentageSold = AppState.raffleConfig ? (totalNumbers / AppState.raffleConfig.totalNumbers * 100) : 0;
-        const percentageOccupied = AppState.raffleConfig ? (occupiedNumbers / AppState.raffleConfig.totalNumbers * 100) : 0;
-        const totalPotentialRevenue = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers * AppState.raffleConfig.price : 0;
-        const reallyAvailableNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - occupiedNumbers : 0;
+        const percentageSold = currentConfig ? (totalNumbers / currentConfig.totalNumbers * 100) : 0;
+        const percentageOccupied = currentConfig ? (occupiedNumbers / currentConfig.totalNumbers * 100) : 0;
+        const totalPotentialRevenue = currentConfig ? currentConfig.totalNumbers * currentConfig.price : 0;
+        const reallyAvailableNumbers = currentConfig ? currentConfig.totalNumbers - occupiedNumbers : 0;
+
+        // Estadísticas de reservas actuales
+        const activeReservations = AppState.reservations ? 
+            AppState.reservations.filter(r => r.status === 'active' && !Utils.isReservationExpired(r)) : [];
+        const reservedNumbers = activeReservations.reduce((sum, res) => 
+            sum + (res.numbers ? res.numbers.length : 0), 0
+        );
+
+        console.log(`📊 [REPORTS] Estadísticas calculadas:`, {
+            totalSales,
+            totalNumbers,
+            confirmedNumbers,
+            pendingNumbers,
+            assignedNumbers,
+            reservedNumbers,
+            reallyAvailableNumbers,
+            percentageSold: percentageSold.toFixed(1)
+        });
 
         const container = document.getElementById('generalReport');
         container.innerHTML = `
             <div class="report-section">
                 <div class="report-header">
-                    <div class="report-title">📊 Reporte General</div>
+                    <div class="report-title">📊 Reporte General - ${currentConfig.name}</div>
                     <button class="btn btn-small" onclick="ReportsManager.exportGeneralReport()">📥 Exportar CSV</button>
                 </div>
                 
@@ -89,6 +122,11 @@ window.ReportsManager = {
                             <div class="sublabel">(A vendedores)</div>
                         </div>
                         <div class="summary-stat">
+                            <div class="number">${reservedNumbers}</div>
+                            <div class="label">Números Reservados</div>
+                            <div class="sublabel">(Temporalmente)</div>
+                        </div>
+                        <div class="summary-stat">
                             <div class="number">${reallyAvailableNumbers}</div>
                             <div class="label">Realmente Disponibles</div>
                         </div>
@@ -106,7 +144,7 @@ window.ReportsManager = {
                         </div>
                     </div>
                     
-                    <!-- Gráfico de progreso -->
+                    <!-- Gráfico de progreso mejorado -->
                     <div class="progress-section" style="margin-top: 30px;">
                         <h4>🎯 Progreso de la Rifa</h4>
                         <div class="progress-container" style="margin: 15px 0;">
@@ -118,6 +156,7 @@ window.ReportsManager = {
                                 overflow: hidden;
                                 box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
                             ">
+                                <!-- Barra de vendidos confirmados -->
                                 <div class="progress-fill" style="
                                     background: linear-gradient(90deg, #4CAF50 0%, #45a049 50%, #66BB6A 100%); 
                                     height: 100%; 
@@ -136,18 +175,25 @@ window.ReportsManager = {
                                         animation: progress-stripes 1s linear infinite;
                                     "></div>
                                 </div>
+                                
+                                <!-- Texto central -->
                                 <div style="
                                     position: absolute; 
                                     top: 50%; 
                                     left: 50%; 
                                     transform: translate(-50%, -50%); 
                                     font-weight: bold; 
-                                    font-size: 16px;
+                                    font-size: 14px;
                                     color: ${percentageSold > 50 ? 'white' : '#333'};
                                     text-shadow: ${percentageSold > 50 ? '1px 1px 2px rgba(0,0,0,0.3)' : '1px 1px 2px rgba(255,255,255,0.8)'};
+                                    text-align: center;
                                 ">
-                                    ${percentageSold.toFixed(1)}% vendido (${confirmedNumbers + pendingNumbers}/${AppState.raffleConfig.totalNumbers})
-                                    <br><small style="font-size: 12px;">${assignedNumbers} asignados, ${reallyAvailableNumbers} disponibles</small>
+                                    ${percentageSold.toFixed(1)}% vendido
+                                    <br><small style="font-size: 11px;">
+                                        ${confirmedNumbers + pendingNumbers}/${currentConfig.totalNumbers} números
+                                        ${assignedNumbers > 0 ? ` | ${assignedNumbers} asignados` : ''}
+                                        ${reservedNumbers > 0 ? ` | ${reservedNumbers} reservados` : ''}
+                                    </small>
                                 </div>
                             </div>
                             
@@ -164,35 +210,42 @@ window.ReportsManager = {
                                     </span>
                                 </div>
                                 <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                                    Quedan ${reallyAvailableNumbers} números realmente disponibles
+                                    ${reallyAvailableNumbers} números realmente disponibles
                                     ${assignedNumbers > 0 ? `<br>${assignedNumbers} números asignados a vendedores` : ''}
+                                    ${reservedNumbers > 0 ? `<br>${reservedNumbers} números en reserva temporal` : ''}
                                 </div>
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Resumen de estado actual -->
+                    <div style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
+                        <h5 style="color: #2d5016; margin-bottom: 10px;">📈 Estado Actual de la Rifa</h5>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 13px;">
+                            <div>✅ <strong>Vendidos confirmados:</strong> ${confirmedNumbers} números</div>
+                            <div>⏳ <strong>Pendientes de pago:</strong> ${pendingNumbers} números</div>
+                            <div>📋 <strong>Asignados a vendedores:</strong> ${assignedNumbers} números</div>
+                            <div>⏰ <strong>En reserva temporal:</strong> ${reservedNumbers} números</div>
+                            <div>🎯 <strong>Disponibles ahora:</strong> ${reallyAvailableNumbers} números</div>
+                            <div>💰 <strong>Recaudación actual:</strong> ${Utils.formatPrice(totalRevenue)}</div>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                            Última actualización: ${new Date().toLocaleString('es-AR')}
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <style>
-                @keyframes progress-stripes {
-                    0% { background-position: 0 0; }
-                    100% { background-position: 40px 0; }
-                }
-                .sublabel {
-                    font-size: 11px;
-                    color: #888;
-                    font-weight: normal;
-                    margin-top: 2px;
-                }
-            </style>
         `;
     },
 
     /**
-     * Reporte de membresía del club (actualizado con nuevo campo)
+     * Reporte de membresía del club - CORREGIDO
      */
     generateMembershipReport: function() {
+        // USAR DATOS ACTUALES directamente
         const sales = AppState.sales || [];
+        
+        console.log(`📊 [REPORTS] Generando reporte de membresía con ${sales.length} ventas`);
         
         const membershipData = {
             'no_socio': 0,
@@ -201,20 +254,24 @@ window.ReportsManager = {
             'ecologia': 0,
             'pesca': 0,
             'ninguna': 0,
+            'vendedor': 0, // Nuevo: para asignaciones confirmadas
             '': 0
         };
 
-        // Contar por área de membresía
+        // Contar por área de membresía usando datos actuales
         sales.forEach(sale => {
-            const membershipArea = sale.buyer.membershipArea || '';
+            const membershipArea = (sale.buyer && sale.buyer.membershipArea) ? sale.buyer.membershipArea : '';
             if (membershipData.hasOwnProperty(membershipArea)) {
                 membershipData[membershipArea]++;
+            } else {
+                membershipData['']++; // No especificado
             }
         });
 
         const totalResponses = sales.length;
-        const totalMembers = totalResponses - membershipData['no_socio'] - membershipData[''];
+        const totalMembers = totalResponses - membershipData['no_socio'] - membershipData[''] - membershipData['vendedor'];
         const totalNonMembers = membershipData['no_socio'];
+        const totalVendors = membershipData['vendedor'];
 
         // Calcular datos para el gráfico circular
         const chartData = Object.entries(membershipData)
@@ -224,7 +281,10 @@ window.ReportsManager = {
                 value: count,
                 percentage: totalResponses > 0 ? (count / totalResponses * 100) : 0,
                 color: this.getMembershipColor(key)
-            }));
+            }))
+            .sort((a, b) => b.value - a.value); // Ordenar por cantidad
+
+        console.log(`📊 [REPORTS] Distribución de membresía:`, chartData);
 
         const container = document.getElementById('membershipReport');
         container.innerHTML = `
@@ -236,7 +296,7 @@ window.ReportsManager = {
                 
                 <div class="report-summary">
                     <!-- Estadísticas resumidas -->
-                    <div class="membership-overview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px;">
+                    <div class="membership-overview" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px;">
                         <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">${totalMembers}</div>
                             <div style="color: #666;">Socios del Club</div>
@@ -247,6 +307,13 @@ window.ReportsManager = {
                             <div style="color: #666;">No Socios</div>
                             <div style="font-size: 12px; color: #888;">${totalResponses > 0 ? ((totalNonMembers / totalResponses) * 100).toFixed(1) : 0}% del total</div>
                         </div>
+                        ${totalVendors > 0 ? `
+                        <div style="background: #e1f5fe; padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #0277bd;">${totalVendors}</div>
+                            <div style="color: #666;">Vendedores</div>
+                            <div style="font-size: 12px; color: #888;">${totalResponses > 0 ? ((totalVendors / totalResponses) * 100).toFixed(1) : 0}% del total</div>
+                        </div>
+                        ` : ''}
                         <div style="background: #f3e5f5; padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 24px; font-weight: bold; color: #9c27b0;">${totalResponses}</div>
                             <div style="color: #666;">Total Compradores</div>
@@ -268,7 +335,7 @@ window.ReportsManager = {
                                         <div style="
                                             background: ${item.color}; 
                                             height: 100%; 
-                                            width: ${item.percentage}%; 
+                                            width: ${Math.max(item.percentage, 2)}%; 
                                             transition: width 0.5s ease;
                                             border-radius: 4px;
                                         "></div>
@@ -289,25 +356,22 @@ window.ReportsManager = {
                             </tr>
                         </thead>
                         <tbody>
-                            ${Object.entries(membershipData)
-                                .filter(([key, count]) => count > 0)
-                                .sort((a, b) => b[1] - a[1])
-                                .map(([membership, count]) => {
-                                    const percentage = totalResponses > 0 ? (count / totalResponses * 100).toFixed(1) : 0;
-                                    const label = AppConstants.MEMBERSHIP_LABELS[membership] || 'No especificado';
-                                    return `
-                                        <tr>
-                                            <td>
-                                                <span style="display: inline-block; width: 12px; height: 12px; background: ${this.getMembershipColor(membership)}; border-radius: 2px; margin-right: 8px;"></span>
-                                                ${label}
-                                            </td>
-                                            <td><strong>${count}</strong></td>
-                                            <td>${percentage}%</td>
-                                        </tr>
-                                    `;
-                                }).join('')}
+                            ${chartData.map(item => `
+                                <tr>
+                                    <td>
+                                        <span style="display: inline-block; width: 12px; height: 12px; background: ${item.color}; border-radius: 2px; margin-right: 8px;"></span>
+                                        ${item.label}
+                                    </td>
+                                    <td><strong>${item.value}</strong></td>
+                                    <td>${item.percentage.toFixed(1)}%</td>
+                                </tr>
+                            `).join('')}
                         </tbody>
                     </table>
+                    
+                    <div style="margin-top: 15px; font-size: 12px; color: #666; text-align: center;">
+                        Datos basados en ${totalResponses} ventas registradas | Actualizado: ${new Date().toLocaleString('es-AR')}
+                    </div>
                 </div>
             </div>
         `;
@@ -324,13 +388,14 @@ window.ReportsManager = {
             'ecologia': '#8BC34A',     // Verde claro
             'pesca': '#00BCD4',        // Cian
             'ninguna': '#9C27B0',      // Púrpura
+            'vendedor': '#0277bd',     // Azul oscuro
             '': '#757575'              // Gris
         };
         return colors[membershipType] || '#757575';
     },
 
     /**
-     * Exportar reporte general
+     * Exportar reporte general - ACTUALIZADO
      */
     exportGeneralReport: function() {
         const sales = AppState.sales || [];
@@ -340,30 +405,30 @@ window.ReportsManager = {
         const pendingSales = sales.filter(s => s.status === 'pending');
         
         const totalSales = sales.length;
-        const totalNumbers = sales.reduce((sum, sale) => sum + sale.numbers.length, 0);
-        const confirmedNumbers = confirmedSales.reduce((sum, sale) => sum + sale.numbers.length, 0);
-        const pendingNumbers = pendingSales.reduce((sum, sale) => sum + sale.numbers.length, 0);
+        const totalNumbers = sales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
+        const confirmedNumbers = confirmedSales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
+        const pendingNumbers = pendingSales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
         const assignedNumbers = assignments
-            .filter(a => a.status === 'assigned')
-            .reduce((sum, assignment) => sum + assignment.numbers.length, 0);
+            .filter(a => a.status === 'assigned' || a.status === 'pending')
+            .reduce((sum, assignment) => sum + (assignment.numbers ? assignment.numbers.length : 0), 0);
         
-        const totalRevenue = confirmedSales.reduce((sum, sale) => sum + sale.total, 0);
-        const pendingRevenue = pendingSales.reduce((sum, sale) => sum + sale.total, 0);
+        const totalRevenue = confirmedSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
+        const pendingRevenue = pendingSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
         const occupiedNumbers = totalNumbers + assignedNumbers;
         const percentageSold = AppState.raffleConfig ? (totalNumbers / AppState.raffleConfig.totalNumbers * 100) : 0;
         const reallyAvailableNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - occupiedNumbers : 0;
 
-        let csvContent = "Métrica,Valor\n";
-        csvContent += `"Total de ventas","${totalSales}"\n`;
-        csvContent += `"Números vendidos confirmados","${confirmedNumbers}"\n`;
-        csvContent += `"Números vendidos pendientes","${pendingNumbers}"\n`;
-        csvContent += `"Total números vendidos","${totalNumbers}"\n`;
-        csvContent += `"Números asignados a vendedores","${assignedNumbers}"\n`;
-        csvContent += `"Números realmente disponibles","${reallyAvailableNumbers}"\n`;
-        csvContent += `"Ingresos confirmados","${totalRevenue}"\n`;
-        csvContent += `"Ingresos pendientes","${pendingRevenue}"\n`;
-        csvContent += `"Ingresos totales","${totalRevenue + pendingRevenue}"\n`;
-        csvContent += `"Porcentaje vendido","${percentageSold.toFixed(1)}%"\n`;
+        let csvContent = "Métrica,Valor,Fecha_Generacion\n";
+        csvContent += `"Total de ventas","${totalSales}","${new Date().toISOString()}"\n`;
+        csvContent += `"Números vendidos confirmados","${confirmedNumbers}","${new Date().toISOString()}"\n`;
+        csvContent += `"Números vendidos pendientes","${pendingNumbers}","${new Date().toISOString()}"\n`;
+        csvContent += `"Total números vendidos","${totalNumbers}","${new Date().toISOString()}"\n`;
+        csvContent += `"Números asignados a vendedores","${assignedNumbers}","${new Date().toISOString()}"\n`;
+        csvContent += `"Números realmente disponibles","${reallyAvailableNumbers}","${new Date().toISOString()}"\n`;
+        csvContent += `"Ingresos confirmados","${totalRevenue}","${new Date().toISOString()}"\n`;
+        csvContent += `"Ingresos pendientes","${pendingRevenue}","${new Date().toISOString()}"\n`;
+        csvContent += `"Ingresos totales","${totalRevenue + pendingRevenue}","${new Date().toISOString()}"\n`;
+        csvContent += `"Porcentaje vendido","${percentageSold.toFixed(1)}%","${new Date().toISOString()}"\n`;
 
         const filename = `reporte_general_${DateUtils.formatForInput(new Date())}.csv`;
         Utils.downloadCSV(csvContent, filename);
@@ -371,12 +436,12 @@ window.ReportsManager = {
     },
 
     /**
-     * Exportar reporte de membresía
+     * Exportar reporte de membresía - ACTUALIZADO
      */
     exportMembershipReport: function() {
         const sales = AppState.sales || [];
         
-        let csvContent = "Relación con el Club,Cantidad,Porcentaje\n";
+        let csvContent = "Relación con el Club,Cantidad,Porcentaje,Fecha_Generacion\n";
         
         const membershipData = {
             'no_socio': 0,
@@ -385,24 +450,28 @@ window.ReportsManager = {
             'ecologia': 0,
             'pesca': 0,
             'ninguna': 0,
+            'vendedor': 0,
             '': 0
         };
 
         sales.forEach(sale => {
-            const membershipArea = sale.buyer.membershipArea || '';
+            const membershipArea = (sale.buyer && sale.buyer.membershipArea) ? sale.buyer.membershipArea : '';
             if (membershipData.hasOwnProperty(membershipArea)) {
                 membershipData[membershipArea]++;
+            } else {
+                membershipData['']++;
             }
         });
 
         const totalResponses = sales.length;
+        const currentDate = new Date().toISOString();
 
         Object.entries(membershipData)
             .filter(([key, count]) => count > 0)
             .forEach(([membership, count]) => {
                 const percentage = totalResponses > 0 ? (count / totalResponses * 100).toFixed(1) : 0;
                 const label = AppConstants.MEMBERSHIP_LABELS[membership] || 'No especificado';
-                csvContent += `"${label}","${count}","${percentage}%"\n`;
+                csvContent += `"${label}","${count}","${percentage}%","${currentDate}"\n`;
             });
 
         const filename = `reporte_membresia_${DateUtils.formatForInput(new Date())}.csv`;
@@ -411,4 +480,4 @@ window.ReportsManager = {
     }
 };
 
-console.log('✅ Reports.js optimizado cargado correctamente');
+console.log('✅ Reports.js corregido y actualizado cargado correctamente');

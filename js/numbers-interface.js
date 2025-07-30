@@ -1,6 +1,7 @@
 /**
  * INTERFAZ DE NÚMEROS - Sistema de Rifas Pampero
  * Maneja la interfaz, grid de números y selección
+ * MEJORADO: Información de números reservados y mejor interactividad
  */
 
 window.NumbersInterface = {
@@ -23,19 +24,19 @@ window.NumbersInterface = {
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #fff3cd;"></div>
-                    Reservado
+                    Reservado 💰💳
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #ffc107;"></div>
-                    Asignado
+                    Asignado 📋
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #007bff;"></div>
-                    Confirmado
+                    Confirmado ✅
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #f8d7da;"></div>
-                    Vendido
+                    Vendido ❌
                 </div>
             </div>
 
@@ -43,9 +44,9 @@ window.NumbersInterface = {
                 <h3>Tu selección</h3>
                 <div id="selectedNumbersList" class="selected-numbers"></div>
                 <div class="total-price" id="totalPrice"></div>
-                <button class="btn" onclick="NumbersManager.openPurchaseModal('buy')" style="width: calc(33% - 3px);">💰 Comprar</button>
-                <button class="btn btn-secondary" onclick="NumbersManager.openPurchaseModal('reserve')" style="width: calc(33% - 3px); background: #ffc107; color: #000;">⏰ Reservar</button>
-                <button class="btn btn-info" onclick="NumbersManager.openAssignmentModal()" style="width: calc(33% - 3px); background: #17a2b8;">🎯 Asignar</button>
+                <button class="btn btn-purchase" onclick="NumbersManager.openPurchaseModal('buy')" style="width: calc(33% - 3px);">💰 Comprar</button>
+                <button class="btn btn-reserve" onclick="NumbersManager.openPurchaseModal('reserve')" style="width: calc(33% - 3px);">⏰ Reservar</button>
+                <button class="btn btn-assign" onclick="NumbersManager.openAssignmentModal()" style="width: calc(33% - 3px);">🎯 Asignar</button>
                 <button class="btn btn-secondary" onclick="NumbersManager.clearSelection()">Limpiar Selección</button>
             </div>
 
@@ -60,6 +61,10 @@ window.NumbersInterface = {
             button.textContent = Utils.formatNumber(i);
             button.onclick = () => this.handleNumberClick(i);
             button.id = `number-${i}`;
+            
+            // Agregar tooltip para números ocupados
+            button.title = 'Hacer click para más información';
+            
             grid.appendChild(button);
         }
 
@@ -75,8 +80,13 @@ window.NumbersInterface = {
         // Si el número está vendido o confirmado, mostrar información
         if (button.classList.contains('sold') || button.classList.contains('confirmed')) {
             NumbersManager.showNumberInfo(number);
-        } else if (button.classList.contains('assigned')) {
-            // Si está asignado, permitir editar titular
+        } 
+        // Si está reservado, mostrar información de la reserva
+        else if (button.classList.contains('reserved')) {
+            this.showReservationInfo(number);
+        }
+        // Si está asignado, permitir editar titular o mostrar info
+        else if (button.classList.contains('assigned')) {
             const assignment = AppState.assignments?.find(a => a.numbers.includes(number));
             if (assignment) {
                 const now = new Date();
@@ -93,8 +103,147 @@ window.NumbersInterface = {
                 NumbersManager.showNumberInfo(number);
             }
         } else {
-            // Si está disponible o reservado, proceder con selección normal
+            // Si está disponible, proceder con selección normal
             this.toggleNumber(number);
+        }
+    },
+
+    /**
+     * Mostrar información de reserva
+     */
+    showReservationInfo: function(number) {
+        const reservation = AppState.reservations.find(r => 
+            r.numbers.includes(number) && r.status === 'active'
+        );
+
+        if (!reservation) {
+            Utils.showNotification('Información de reserva no encontrada', 'error');
+            return;
+        }
+
+        const timeLeft = Utils.getTimeLeft(reservation.expiresAt);
+        const isExpired = Utils.isReservationExpired(reservation);
+        const isExpiringSoon = timeLeft.hours < 2;
+
+        const modalHtml = `
+            <div id="reservationInfoModal" class="modal" style="display: block;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>⏰ Información de Reserva - ${Utils.formatNumber(number)}</h3>
+                        <span class="modal-close" onclick="NumbersInterface.closeReservationInfoModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="reservation-info-section">
+                            <div class="info-subsection">
+                                <h5>👤 Cliente</h5>
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <label>Nombre</label>
+                                        <span>${reservation.buyer.name} ${reservation.buyer.lastName}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Teléfono</label>
+                                        <span>${reservation.buyer.phone}</span>
+                                    </div>
+                                    ${reservation.buyer.email ? `
+                                    <div class="info-item">
+                                        <label>Email</label>
+                                        <span>${reservation.buyer.email}</span>
+                                    </div>
+                                    ` : ''}
+                                    ${reservation.buyer.membershipArea ? `
+                                    <div class="info-item">
+                                        <label>Relación con el club</label>
+                                        <span>${AppConstants.MEMBERSHIP_LABELS[reservation.buyer.membershipArea] || reservation.buyer.membershipArea}</span>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+
+                            <div class="info-subsection">
+                                <h5>🎯 Detalles de la Reserva</h5>
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <label>Números reservados</label>
+                                        <span>${reservation.numbers.map(n => Utils.formatNumber(n)).join(', ')}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Total</label>
+                                        <span style="font-weight: bold; color: #4CAF50;">${Utils.formatPrice(reservation.total)}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Fecha de reserva</label>
+                                        <span>${Utils.formatDateTime(reservation.createdAt)}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Estado</label>
+                                        <span class="status-badge ${isExpired ? 'status-expired' : isExpiringSoon ? 'status-warning' : 'status-active'}">
+                                            ${isExpired ? '⚠️ Vencida' : isExpiringSoon ? '🔥 Por vencer' : '✅ Activa'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="info-subsection">
+                                <h5>⏰ Tiempo de Reserva</h5>
+                                <div style="background: ${isExpired ? '#f8d7da' : isExpiringSoon ? '#fff3cd' : '#d1ecf1'}; 
+                                           padding: 15px; border-radius: 8px; border-left: 4px solid ${isExpired ? '#dc3545' : isExpiringSoon ? '#ffc107' : '#17a2b8'};">
+                                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px; color: ${isExpired ? '#721c24' : isExpiringSoon ? '#856404' : '#0c5460'};">
+                                        ${isExpired ? '⚠️ RESERVA VENCIDA' : 
+                                          isExpiringSoon ? '🔥 VENCE PRONTO' : 
+                                          `⏰ ${timeLeft.hours}h ${timeLeft.minutes}m restantes`}
+                                    </div>
+                                    <div style="font-size: 14px; color: #666;">
+                                        ${isExpired ? 
+                                          `Venció el ${Utils.formatDateTime(reservation.expiresAt)}` :
+                                          `Vence el ${Utils.formatDateTime(reservation.expiresAt)}`
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${!isExpired && AdminManager ? `
+                            <div class="info-subsection">
+                                <h5>⚡ Acciones Rápidas</h5>
+                                <div style="display: grid; gap: 10px;">
+                                    <button class="btn btn-purchase" onclick="AdminReservations.confirmReservation('${reservation.id}', 'efectivo'); NumbersInterface.closeReservationInfoModal();">
+                                        💰 Confirmar Pago en Efectivo
+                                    </button>
+                                    <button class="btn btn-info" onclick="AdminReservations.confirmReservation('${reservation.id}', 'transferencia'); NumbersInterface.closeReservationInfoModal();">
+                                        💳 Confirmar Pago por Transferencia
+                                    </button>
+                                    <button class="btn btn-warning" onclick="AdminReservations.extendReservation('${reservation.id}'); NumbersInterface.closeReservationInfoModal();">
+                                        ⏰ Extender Tiempo de Reserva
+                                    </button>
+                                </div>
+                            </div>
+                            ` : ''}
+
+                            <div class="info-subsection">
+                                <h5>📱 Contacto</h5>
+                                <div style="text-align: center;">
+                                    <a href="https://wa.me/${NumbersManager.formatPhoneForWhatsApp(reservation.buyer.phone)}?text=${encodeURIComponent(`Hola ${reservation.buyer.name}! Te contactamos sobre tu reserva de los números ${reservation.numbers.map(n => Utils.formatNumber(n)).join(', ')} en la Rifa Náutica por ${Utils.formatPrice(reservation.total)}.`)}" 
+                                       class="whatsapp-btn" target="_blank">
+                                       📱 Contactar a ${reservation.buyer.name}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    },
+
+    /**
+     * Cerrar modal de información de reserva
+     */
+    closeReservationInfoModal: function() {
+        const modal = document.getElementById('reservationInfoModal');
+        if (modal) {
+            modal.remove();
         }
     },
 
@@ -127,7 +276,7 @@ window.NumbersInterface = {
                 r.numbers.includes(number) && r.status === 'active'
             );
             if (reservation && !Utils.isReservationExpired(reservation)) {
-                Utils.showNotification('Este número está reservado temporalmente', 'warning');
+                Utils.showNotification('Este número está reservado temporalmente. Haz click para ver detalles.', 'warning');
                 return;
             }
         }
@@ -187,4 +336,4 @@ window.NumbersInterface = {
     }
 };
 
-console.log('✅ numbers-interface.js cargado correctamente');
+console.log('✅ numbers-interface.js mejorado cargado correctamente');

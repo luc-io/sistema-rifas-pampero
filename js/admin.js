@@ -2,6 +2,7 @@
  * PANEL DE ADMINISTRACIÓN COORDINADOR - Sistema de Rifas Pampero
  * Módulo principal que coordina todos los submódulos administrativos
  * REFACTORIZADO: Dividido en módulos especializados para mejor mantenibilidad
+ * MEJORADO: Botones de confirmación efectivo/transferencia en asignaciones
  */
 
 window.AdminManager = {
@@ -14,7 +15,6 @@ window.AdminManager = {
         const container = document.getElementById('adminContent');
         container.innerHTML = `
             ${this.createStatsSection()}
-            ${this.createToolsSection()}
             ${this.createAssignmentsSection()}
             ${this.createReservationsSection()}
             ${this.createSearchSection()}
@@ -56,26 +56,7 @@ window.AdminManager = {
     },
 
     /**
-     * Crear sección de herramientas de diagnóstico
-     */
-    createToolsSection: function() {
-        return `
-            <div class="admin-tools" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <h4>🔧 Herramientas de Diagnóstico</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 10px 0;">
-                    <button class="btn btn-secondary" onclick="AdminManager.validateDataIntegrity(true)">🔍 Verificar Integridad</button>
-                    <button class="btn btn-secondary" onclick="AdminManager.testSupabaseConnection()">🌐 Test Supabase</button>
-                    <button class="btn btn-secondary" onclick="AdminManager.showSystemInfo()">📊 Info del Sistema</button>
-                    <button class="btn btn-secondary" onclick="AdminManager.fixDuplicates()">🔧 Corregir Duplicados</button>
-                    <button class="btn btn-secondary" onclick="AdminManager.cleanExpiredReservations()">🧹 Limpiar Vencidas</button>
-                    <button class="btn btn-secondary" onclick="AdminManager.checkDataConsistency()">🔄 Verificar Consistencia</button>
-                </div>
-            </div>
-        `;
-    },
-
-    /**
-     * Crear sección de asignaciones
+     * Crear sección de asignaciones mejorada
      */
     createAssignmentsSection: function() {
         return `
@@ -363,11 +344,11 @@ window.AdminManager = {
     },
 
     // ==========================================
-    // FUNCIONES DE ASIGNACIONES (TEMPORAL)
+    // FUNCIONES DE ASIGNACIONES MEJORADAS
     // ==========================================
 
     /**
-     * Actualizar lista de asignaciones (función temporal hasta refactorizar)
+     * Actualizar lista de asignaciones con botones de confirmación
      */
     updateAssignmentsList: function() {
         const container = document.getElementById('assignmentsList');
@@ -382,7 +363,7 @@ window.AdminManager = {
 
         container.innerHTML = activeAssignments.map(assignment => {
             const numbersFormatted = assignment.numbers.map(n => Utils.formatNumber(n));
-            const isPending = assignment.status === 'pending';
+            const isPending = assignment.status === 'pending' || assignment.status === 'assigned';
             const isPaid = assignment.status === 'paid';
             const isOverdue = assignment.payment_deadline && new Date() > new Date(assignment.payment_deadline);
 
@@ -391,7 +372,8 @@ window.AdminManager = {
                 <div class="sale-header">
                     <strong>${assignment.seller_name} ${assignment.seller_lastname}</strong>
                     <span class="payment-status ${isPaid ? 'paid' : isPending ? 'pending' : 'overdue'}">
-                        ${isPaid ? '✅ Pagado' : isPending ? '⏳ Pendiente' : '⚠️ Vencido'}
+                        <span class="status-icon ${isPaid ? 'paid' : 'pending'}">${isPaid ? '✅' : isPending ? '⏳' : '⚠️'}</span>
+                        ${isPaid ? 'Pagado' : isPending ? 'Pendiente' : 'Vencido'}
                     </span>
                 </div>
                 <div>📞 ${assignment.seller_phone}</div>
@@ -399,9 +381,14 @@ window.AdminManager = {
                 <div class="sale-numbers">
                     ${numbersFormatted.map(num => `<span class="sale-number">${num}</span>`).join('')}
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-                    <span>💰 Total: ${Utils.formatPrice(assignment.total_amount)}</span>
-                    <span>📊 ${assignment.numbers.length} números</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="payment-icon ${isPaid ? 'efectivo' : 'transferencia-pending'}" title="${isPaid ? 'Pago confirmado' : 'Pago pendiente'}">
+                            ${isPaid ? '💰' : '⏳'}
+                        </span>
+                        <span style="font-size: 14px; color: #666;">Asignación</span>
+                    </div>
+                    <strong style="color: ${isPaid ? '#4CAF50' : '#ff9800'};">${Utils.formatPrice(assignment.total_amount)}</strong>
                 </div>
                 ${assignment.payment_deadline ? `
                 <div style="margin: 8px 0; font-size: 14px; color: ${isOverdue ? '#dc3545' : '#856404'};">
@@ -409,13 +396,130 @@ window.AdminManager = {
                 </div>` : ''}
                 ${assignment.notes ? `<div style="margin: 8px 0; font-size: 14px; color: #6c757d;">📝 ${assignment.notes}</div>` : ''}
                 <div class="admin-actions">
-                    ${isPending ? `<button class="btn btn-small" onclick="AdminManager.markAssignmentAsPaid('${assignment.id}')">✅ Marcar Pagado</button>` : ''}
+                    ${isPending ? `
+                        <button class="btn btn-small btn-purchase" onclick="AdminManager.confirmAssignmentPayment('${assignment.id}', 'efectivo')">
+                            💰 Confirmar Efectivo
+                        </button>
+                        <button class="btn btn-small btn-info" onclick="AdminManager.confirmAssignmentPayment('${assignment.id}', 'transferencia')">
+                            💳 Confirmar Transferencia
+                        </button>
+                    ` : ''}
                     <button class="btn btn-secondary btn-small" onclick="AdminManager.changeAssignmentHolder('${assignment.id}')">👥 Cambiar Titular</button>
                     <button class="btn btn-secondary btn-small" onclick="AdminManager.cancelAssignment('${assignment.id}')">❌ Cancelar</button>
+                    <button class="btn btn-info btn-small" onclick="AdminManager.sendAssignmentWhatsApp('${assignment.id}')">📱 WhatsApp</button>
                 </div>
             </div>
         `;
         }).join('');
+    },
+
+    /**
+     * Confirmar pago de asignación
+     */
+    confirmAssignmentPayment: async function(assignmentId, paymentMethod) {
+        console.log(`🔍 [ADMIN] Confirmando pago de asignación ${assignmentId} con método: ${paymentMethod}`);
+        
+        const assignment = AppState.assignments?.find(a => a.id == assignmentId);
+        if (!assignment) {
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
+
+        if (!confirm(`¿Confirmar pago de asignación de ${assignment.seller_name} ${assignment.seller_lastname} por ${Utils.formatPrice(assignment.total_amount)}?`)) {
+            return;
+        }
+
+        try {
+            if (window.SupabaseAssignmentsManager && window.SupabaseAssignmentsManager.markAsPaid) {
+                const success = await window.SupabaseAssignmentsManager.markAsPaid(assignmentId);
+                if (success) {
+                    assignment.status = 'paid';
+                    assignment.payment_method = paymentMethod;
+                    assignment.payment_date = new Date().toISOString();
+                    
+                    // Crear venta desde asignación
+                    const sale = {
+                        id: Utils.generateId(),
+                        numbers: [...assignment.numbers],
+                        buyer: {
+                            name: assignment.seller_name,
+                            lastName: assignment.seller_lastname,
+                            phone: assignment.seller_phone,
+                            email: assignment.seller_email || '',
+                            membershipArea: 'vendedor'
+                        },
+                        paymentMethod: paymentMethod,
+                        total: assignment.total_amount,
+                        status: 'paid',
+                        date: new Date(),
+                        originalAssignmentId: assignment.id
+                    };
+
+                    // Guardar venta
+                    if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                        await window.SupabaseManager.saveSale(sale);
+                    } else {
+                        AppState.sales.push(sale);
+                        await autoSave();
+                    }
+
+                    this.updateInterface();
+                    Utils.showNotification(`Pago confirmado como ${paymentMethod}`, 'success');
+                    
+                    console.log('✅ [ADMIN] Asignación confirmada en Supabase');
+                } else {
+                    Utils.showNotification('Error confirmando el pago en Supabase', 'error');
+                }
+            } else {
+                // Fallback local
+                assignment.status = 'paid';
+                assignment.payment_method = paymentMethod;
+                assignment.payment_date = new Date().toISOString();
+                
+                await autoSave();
+                this.updateInterface();
+                Utils.showNotification(`Pago confirmado como ${paymentMethod} (localStorage)`, 'success');
+                
+                console.log('📱 [ADMIN] Asignación confirmada en localStorage');
+            }
+        } catch (error) {
+            console.error('❌ [ADMIN] Error confirmando pago de asignación:', error);
+            Utils.showNotification('Error confirmando el pago', 'error');
+        }
+    },
+
+    /**
+     * Enviar WhatsApp a vendedor de asignación
+     */
+    sendAssignmentWhatsApp: function(assignmentId) {
+        const assignment = AppState.assignments?.find(a => a.id == assignmentId);
+        if (!assignment) {
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
+
+        const numbersFormatted = assignment.numbers.map(n => Utils.formatNumber(n)).join(', ');
+        const isPaid = assignment.status === 'paid';
+        
+        const message = `🎟️ *ASIGNACIÓN RIFA NÁUTICA*\n\n` +
+            `Hola ${assignment.seller_name}! 👋\n\n` +
+            `${isPaid ? 
+                `✅ Confirmamos el pago de tu asignación:\n` +
+                `📋 Números: ${numbersFormatted}\n` +
+                `💰 Total: ${Utils.formatPrice(assignment.total_amount)}\n` +
+                `✅ Estado: PAGADO\n\n` +
+                `¡Gracias por participar en la Rifa Náutica! ⛵` :
+                `📋 Te recordamos tu asignación:\n` +
+                `🎯 Números asignados: ${numbersFormatted}\n` +
+                `💰 Total a rendir: ${Utils.formatPrice(assignment.total_amount)}\n` +
+                `⏰ Fecha límite: ${assignment.payment_deadline ? Utils.formatDateTime(new Date(assignment.payment_deadline)) : 'No especificada'}\n\n` +
+                `Para confirmar el pago, contacta con nosotros. ¡Gracias! ⛵`
+            }`;
+
+        const whatsappUrl = `https://wa.me/${NumbersManager.formatPhoneForWhatsApp(assignment.seller_phone)}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+        
+        Utils.showNotification('WhatsApp abierto para contactar vendedor', 'info');
     },
 
     // ==========================================
@@ -550,10 +654,10 @@ window.AdminManager = {
         }, 500);
     },
 
-    // Funciones temporales para mantener compatibilidad (estas deberían ser refactorizadas)
+    // Funciones temporales para mantener compatibilidad (mejoradas)
     markAssignmentAsPaid: function(assignmentId) {
-        console.log(`⚠️ [ADMIN] markAssignmentAsPaid no implementado para ID: ${assignmentId}`);
-        Utils.showNotification('Función en desarrollo', 'warning');
+        // Redirigir a la nueva función mejorada
+        this.confirmAssignmentPayment(assignmentId, 'efectivo');
     },
 
     changeAssignmentHolder: function(assignmentId) {
@@ -567,4 +671,4 @@ window.AdminManager = {
     }
 };
 
-console.log('✅ AdminManager refactorizado cargado correctamente');
+console.log('✅ AdminManager mejorado cargado correctamente');

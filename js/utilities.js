@@ -1,9 +1,123 @@
 /**
  * UTILIDADES DEL SISTEMA - Sistema de Rifas Pampero
- * Herramientas útiles para gestión con Supabase
+ * Herramientas útiles para gestión con Supabase y diagnóstico del sistema
+ * ACTUALIZADO: Funciones completas para la nueva pestaña de utilidades
  */
 
 window.UtilitiesManager = {
+    /**
+     * Inicializar utilidades
+     */
+    init: function() {
+        // Verificar conexión al inicializar
+        setTimeout(() => {
+            this.testConnection();
+            this.updateQuickStats();
+            this.updateGoogleSheetsStatus();
+            this.updateSystemSummary();
+        }, 1000);
+        
+        // Actualizar estadísticas cada 30 segundos para mantener datos frescos
+        setInterval(() => {
+            this.updateQuickStats();
+            this.updateSystemSummary();
+        }, 30000);
+    },
+
+    /**
+     * Validar integridad de datos (delegado a AdminValidation)
+     */
+    validateDataIntegrity: function() {
+        if (window.AdminValidation) {
+            AdminValidation.validateDataIntegrity(true);
+        } else {
+            Utils.showNotification('⚠️ Módulo de validación no disponible', 'warning');
+        }
+    },
+
+    /**
+     * Test de conexión con Supabase
+     */
+    testSupabaseConnection: async function() {
+        Utils.showNotification('🔍 Probando conexión con Supabase...', 'info');
+        
+        if (!window.SupabaseManager || !SupabaseManager.isConnected) {
+            Utils.showNotification('❌ Supabase no está conectado', 'error');
+            return;
+        }
+
+        try {
+            // Test función de assignments
+            if (window.SupabaseAssignmentsManager && SupabaseAssignmentsManager.testConnection) {
+                const result = await SupabaseAssignmentsManager.testConnection();
+                if (result) {
+                    Utils.showNotification('✅ Conexión con Supabase exitosa', 'success');
+                } else {
+                    Utils.showNotification('⚠️ Problemas de conexión detectados', 'warning');
+                }
+            } else {
+                Utils.showNotification('⚠️ Función de test no disponible', 'warning');
+            }
+        } catch (error) {
+            console.error('❌ [UTILITIES] Error en test de conexión:', error);
+            Utils.showNotification(`❌ Error en test: ${error.message}`, 'error');
+        }
+    },
+
+    /**
+     * Mostrar información del sistema
+     */
+    showSystemInfo: function() {
+        if (window.AdminManager && AdminManager.showSystemInfo) {
+            AdminManager.showSystemInfo();
+        } else {
+            Utils.showNotification('⚠️ Función de información del sistema no disponible', 'warning');
+        }
+    },
+
+    /**
+     * Corregir duplicados
+     */
+    fixDuplicates: function() {
+        if (window.AdminManager && AdminManager.fixDuplicates) {
+            AdminManager.fixDuplicates();
+        } else {
+            Utils.showNotification('⚠️ Función de corrección de duplicados no disponible', 'warning');
+        }
+    },
+
+    /**
+     * Limpiar reservas vencidas
+     */
+    cleanExpiredReservations: function() {
+        if (window.AdminReservations && AdminReservations.cleanExpiredReservations) {
+            AdminReservations.cleanExpiredReservations();
+        } else {
+            Utils.showNotification('⚠️ Función de limpieza de reservas no disponible', 'warning');
+        }
+    },
+
+    /**
+     * Verificar consistencia de datos
+     */
+    checkDataConsistency: function() {
+        if (window.AdminValidation && AdminValidation.checkDataConsistency) {
+            const consistency = AdminValidation.checkDataConsistency();
+            
+            if (consistency.isConsistent) {
+                Utils.showNotification('✅ Datos consistentes entre memoria y UI', 'success');
+            } else {
+                console.warn('⚠️ [UTILITIES] Inconsistencias detectadas:', consistency.inconsistencies);
+                Utils.showNotification(
+                    `⚠️ Se detectaron ${consistency.inconsistencies.length} inconsistencias. Revisa la consola para detalles.`, 
+                    'warning'
+                );
+            }
+        } else {
+            Utils.showNotification('⚠️ Función de verificación de consistencia no disponible', 'warning');
+        }
+    },
+
     /**
      * Exportar todas las ventas en formato CSV detallado
      */
@@ -122,6 +236,11 @@ window.UtilitiesManager = {
         const text = document.getElementById('connectionText');
         const details = document.getElementById('connectionDetails');
 
+        if (!indicator || !text || !details) {
+            console.warn('⚠️ [UTILITIES] Elementos de UI no encontrados para test de conexión');
+            return;
+        }
+
         // Estado verificando
         indicator.style.background = '#ffc107';
         text.textContent = 'Verificando conexión...';
@@ -171,6 +290,11 @@ window.UtilitiesManager = {
      */
     updateQuickStats: function() {
         const container = document.getElementById('quickStats');
+
+        if (!container) {
+            console.warn('⚠️ [UTILITIES] Contenedor quickStats no encontrado');
+            return;
+        }
 
         if (!AppState.raffleConfig) {
             container.innerHTML = '<div style="font-size: 14px; color: #666;">Configura tu rifa para ver estadísticas</div>';
@@ -237,15 +361,38 @@ window.UtilitiesManager = {
     },
 
     /**
-     * Inicializar utilidades
+     * Actualizar resumen del sistema
      */
-    init: function() {
-        // Verificar conexión al inicializar
-        setTimeout(() => {
-            this.testConnection();
-            this.updateQuickStats();
-            this.updateGoogleSheetsStatus();
-        }, 1000);
+    updateSystemSummary: function() {
+        const container = document.getElementById('systemSummary');
+        if (!container) return;
+
+        if (!AppState.raffleConfig) {
+            container.innerHTML = 'Sistema listo para configurar una nueva rifa';
+            return;
+        }
+
+        const sales = AppState.sales || [];
+        const reservations = AppState.reservations || [];
+        const assignments = AppState.assignments || [];
+        
+        const totalSales = sales.length;
+        const totalRevenue = sales.filter(s => s.status === 'paid').reduce((sum, s) => sum + s.total, 0);
+        const activeReservations = reservations.filter(r => r.status === 'active').length;
+        const activeAssignments = assignments.filter(a => a.status !== 'cancelled').length;
+        
+        const supabaseStatus = window.SupabaseManager?.isConnected ? '✅ Conectado' : '❌ Desconectado';
+
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; font-size: 11px;">
+                <div><strong>📊 Ventas:</strong> ${totalSales}</div>
+                <div><strong>💰 Ingresos:</strong> ${Utils.formatPrice(totalRevenue)}</div>
+                <div><strong>⏰ Reservas:</strong> ${activeReservations}</div>
+                <div><strong>📋 Asignaciones:</strong> ${activeAssignments}</div>
+                <div><strong>☁️ Supabase:</strong> ${supabaseStatus}</div>
+                <div><strong>📱 Rifa:</strong> ${AppState.raffleConfig.name}</div>
+            </div>
+        `;
     },
     
     /**
@@ -294,4 +441,4 @@ window.UtilitiesManager = {
     }
 };
 
-console.log('✅ Utilities.js cargado correctamente');
+console.log('✅ Utilities.js actualizado cargado correctamente');
