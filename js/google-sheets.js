@@ -52,8 +52,16 @@ window.GoogleSheetsManager = {
             this.initializeTokenClient();
             
             this.config.isInitialized = true;
+            
+            // Intentar restaurar estado de autenticación
+            setTimeout(() => {
+                if (this.restoreAuthState()) {
+                    console.log('✅ [SHEETS] Estado de autenticación restaurado');
+                }
+                this.updateUIStatus();
+            }, 100);
+            
             console.log('✅ [SHEETS] Google Sheets API inicializada con GIS');
-            this.updateUIStatus();
             return true;
             
         } catch (error) {
@@ -145,6 +153,7 @@ window.GoogleSheetsManager = {
                     return;
                 }
                 
+                // CRÍTICO: Actualizar estado de forma atómica
                 this.config.accessToken = tokenResponse.access_token;
                 this.config.isSignedIn = true;
                 
@@ -152,6 +161,9 @@ window.GoogleSheetsManager = {
                 gapi.client.setToken({
                     access_token: tokenResponse.access_token
                 });
+                
+                // Guardar estado de autenticación
+                this.saveAuthState();
                 
                 console.log('✅ [SHEETS] Autenticación exitosa');
                 console.log('🔍 [SHEETS] Estado después de auth:', {
@@ -162,11 +174,9 @@ window.GoogleSheetsManager = {
                 
                 Utils.showNotification('Conectado a Google Sheets exitosamente', 'success');
                 
-                // Forzar actualización de UI después de un pequeño delay
-                setTimeout(() => {
-                    this.updateUIStatus();
-                    console.log('🔄 [SHEETS] UI actualizada después de autenticación');
-                }, 100);
+                // Actualizar UI inmediatamente
+                this.updateUIStatus();
+                console.log('🔄 [SHEETS] UI actualizada después de autenticación');
             }
         });
     },
@@ -245,8 +255,58 @@ window.GoogleSheetsManager = {
         this.config.accessToken = null;
         gapi.client.setToken(null);
         
+        // Limpiar estado local
+        localStorage.removeItem('google_sheets_auth_state');
+        
         Utils.showNotification('Desconectado de Google Sheets', 'info');
         this.updateUIStatus();
+    },
+    
+    /**
+     * Guardar estado de autenticación
+     */
+    saveAuthState: function() {
+        if (this.config.isSignedIn && this.config.accessToken) {
+            const authState = {
+                isSignedIn: true,
+                timestamp: Date.now(),
+                // No guardamos el token por seguridad, solo el estado
+            };
+            localStorage.setItem('google_sheets_auth_state', JSON.stringify(authState));
+        }
+    },
+    
+    /**
+     * Restaurar estado de autenticación
+     */
+    restoreAuthState: function() {
+        try {
+            const saved = localStorage.getItem('google_sheets_auth_state');
+            if (saved) {
+                const authState = JSON.parse(saved);
+                const oneHour = 60 * 60 * 1000;
+                
+                // Verificar que el estado no sea muy antiguo (1 hora)
+                if (authState.timestamp && (Date.now() - authState.timestamp) < oneHour) {
+                    // Verificar si gapi tiene token
+                    const gapiToken = gapi?.client?.getToken?.();
+                    if (gapiToken && gapiToken.access_token) {
+                        console.log('🔄 [SHEETS] Restaurando estado de autenticación');
+                        this.config.accessToken = gapiToken.access_token;
+                        this.config.isSignedIn = true;
+                        return true;
+                    }
+                }
+                
+                // Limpiar estado expirado
+                localStorage.removeItem('google_sheets_auth_state');
+            }
+        } catch (error) {
+            console.warn('⚠️ [SHEETS] Error restaurando estado:', error);
+            localStorage.removeItem('google_sheets_auth_state');
+        }
+        
+        return false;
     },
     
     /**
@@ -578,6 +638,44 @@ window.GoogleSheetsManager = {
     },
     
     /**
+     * Verificar y mantener estado de autenticación
+     */
+    verifyAuthState: function() {
+        console.log('🔍 [SHEETS] Verificando estado de autenticación...');
+        
+        // Verificar token en gapi
+        const gapiToken = gapi?.client?.getToken?.();
+        const hasGapiToken = !!(gapiToken && gapiToken.access_token);
+        
+        console.log('🔍 [SHEETS] Estado actual:', {
+            configSignedIn: this.config.isSignedIn,
+            configToken: !!this.config.accessToken,
+            gapiToken: hasGapiToken,
+            gapiTokenValue: gapiToken?.access_token?.substring(0, 20) + '...' || 'none'
+        });
+        
+        // Si gapi tiene token pero config no, sincronizar
+        if (hasGapiToken && (!this.config.isSignedIn || !this.config.accessToken)) {
+            console.log('🔄 [SHEETS] Sincronizando estado de autenticación desde gapi');
+            this.config.accessToken = gapiToken.access_token;
+            this.config.isSignedIn = true;
+            this.saveAuthState();
+            return true;
+        }
+        
+        // Si config dice que está autenticado pero gapi no tiene token, limpiar
+        if (this.config.isSignedIn && !hasGapiToken) {
+            console.log('⚠️ [SHEETS] Estado inconsistente, limpiando');
+            this.config.isSignedIn = false;
+            this.config.accessToken = null;
+            localStorage.removeItem('google_sheets_auth_state');
+            return false;
+        }
+        
+        return this.config.isSignedIn;
+    },
+    
+    /**
      * Función de debug para forzar actualización de UI
      */
     debugUI: function() {
@@ -592,6 +690,9 @@ window.GoogleSheetsManager = {
         
         const dataStatus = this.checkDataAvailability();
         console.log('🔍 [SHEETS] DEBUG - Estado de datos:', dataStatus);
+        
+        // Verificar estado antes de actualizar UI
+        this.verifyAuthState();
         
         console.log('🔄 [SHEETS] Forzando actualización de UI...');
         this.updateUIStatus();
@@ -783,6 +884,9 @@ window.GoogleSheetsManager = {
                 });
                 return;
             }
+            
+            // Verificar y sincronizar estado de autenticación
+            this.verifyAuthState();
             
             // Log del estado actual
             console.log('🔍 [SHEETS] Estado en updateUIStatus:', {
