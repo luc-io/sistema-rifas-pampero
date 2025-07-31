@@ -154,8 +154,19 @@ window.GoogleSheetsManager = {
                 });
                 
                 console.log('✅ [SHEETS] Autenticación exitosa');
+                console.log('🔍 [SHEETS] Estado después de auth:', {
+                    isSignedIn: this.config.isSignedIn,
+                    isInitialized: this.config.isInitialized,
+                    hasToken: !!this.config.accessToken
+                });
+                
                 Utils.showNotification('Conectado a Google Sheets exitosamente', 'success');
-                this.updateUIStatus();
+                
+                // Forzar actualización de UI después de un pequeño delay
+                setTimeout(() => {
+                    this.updateUIStatus();
+                    console.log('🔄 [SHEETS] UI actualizada después de autenticación');
+                }, 100);
             }
         });
     },
@@ -565,6 +576,31 @@ window.GoogleSheetsManager = {
         console.log('🔄 [SHEETS] Actualizando estado de datos...');
         this.updateUIStatus();
     },
+    
+    /**
+     * Función de debug para forzar actualización de UI
+     */
+    debugUI: function() {
+        console.log('🔍 [SHEETS] DEBUG - Estado completo:', {
+            isSignedIn: this.config.isSignedIn,
+            isInitialized: this.config.isInitialized,
+            hasToken: !!this.config.accessToken,
+            hasSpreadsheet: !!this.config.spreadsheetId,
+            apiKey: !!this.config.apiKey,
+            clientId: !!this.config.clientId
+        });
+        
+        const dataStatus = this.checkDataAvailability();
+        console.log('🔍 [SHEETS] DEBUG - Estado de datos:', dataStatus);
+        
+        console.log('🔄 [SHEETS] Forzando actualización de UI...');
+        this.updateUIStatus();
+        
+        return {
+            config: this.config,
+            dataStatus: dataStatus
+        };
+    },
 
     /**
      * Sincronizar todos los datos
@@ -726,6 +762,8 @@ window.GoogleSheetsManager = {
      * Actualizar estado en la UI MEJORADO
      */
     updateUIStatus: function() {
+        console.log('🔄 [SHEETS] Iniciando updateUIStatus...');
+        
         const indicator = document.getElementById('sheetsConnectionIndicator');
         const text = document.getElementById('sheetsConnectionText');
         const details = document.getElementById('sheetsConnectionDetails');
@@ -736,14 +774,30 @@ window.GoogleSheetsManager = {
             // Verificar que existan los elementos
             if (!indicator || !text || !details || !createBtn || !syncBtn) {
                 console.warn('⚠️ [SHEETS] Elementos de UI no encontrados');
+                console.log('🔍 [SHEETS] Elementos encontrados:', {
+                    indicator: !!indicator,
+                    text: !!text,
+                    details: !!details,
+                    createBtn: !!createBtn,
+                    syncBtn: !!syncBtn
+                });
                 return;
             }
+            
+            // Log del estado actual
+            console.log('🔍 [SHEETS] Estado en updateUIStatus:', {
+                isSignedIn: this.config.isSignedIn,
+                isInitialized: this.config.isInitialized,
+                hasToken: !!this.config.accessToken,
+                hasSpreadsheet: !!this.config.spreadsheetId
+            });
             
             // Verificar disponibilidad de datos
             const dataStatus = this.checkDataAvailability();
             console.log('📊 [SHEETS] Estado de datos:', dataStatus);
             
             if (this.config.isSignedIn) {
+                console.log('✅ [SHEETS] Aplicando estilo para usuario autenticado');
                 indicator.style.background = '#28a745';
                 text.textContent = 'Autenticado exitosamente';
                 
@@ -789,6 +843,7 @@ window.GoogleSheetsManager = {
                 }
                 
             } else if (this.config.isInitialized) {
+                console.log('🟡 [SHEETS] Aplicando estilo para inicializado pero no autenticado');
                 indicator.style.background = '#ffc107';
                 text.textContent = 'Listo para autenticar';
                 details.innerHTML = `
@@ -801,6 +856,7 @@ window.GoogleSheetsManager = {
                 syncBtn.disabled = true;
                 syncBtn.textContent = '🔄 No Autenticado';
             } else {
+                console.log('🔴 [SHEETS] Aplicando estilo para no configurado');
                 indicator.style.background = '#dc3545';
                 text.textContent = 'No configurado';
                 details.innerHTML = `
@@ -813,6 +869,8 @@ window.GoogleSheetsManager = {
                 syncBtn.disabled = true;
                 syncBtn.textContent = '🔄 No Configurado';
             }
+            
+            console.log('✅ [SHEETS] updateUIStatus completado');
         } catch (error) {
             console.error('❌ [SHEETS] Error actualizando estado UI:', error);
         }
