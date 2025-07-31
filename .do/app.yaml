@@ -1,49 +1,71 @@
-# 🌊 Configuración STATIC SITE para Digital Ocean App Platform
-
-name: pampero-rifas
-static_sites:
+# .do/app.yaml - Configuración para Digital Ocean App Platform
+name: rifas-pampero
+services:
 - name: web
-  build_command: node inject-env.js
-  output_dir: public
-  index_document: index.html
-  error_document: index.html
-  catchall_document: index.html
+  source_dir: /
+  github:
+    repo: tu-usuario/rifas-pampero
+    branch: main
+  run_command: |
+    echo "🚀 Iniciando build para Rifas Pampero..."
+    chmod +x build.sh
+    ./build.sh
+    echo "🎉 Build completado, sirviendo aplicación..."
+    python3 -m http.server 8080
+  environment_slug: static
+  instance_count: 1
+  instance_size_slug: basic-xxs
   envs:
-  # Configuración de Supabase
+  # Variables de Supabase
   - key: SUPABASE_URL
-    scope: BUILD_TIME
+    value: "${SUPABASE_URL}"
     type: SECRET
   - key: SUPABASE_ANON_KEY
-    scope: BUILD_TIME
+    value: "${SUPABASE_ANON_KEY}"
     type: SECRET
-  # Configuración predefinida de la rifa
+  
+  # Variables de Google APIs
+  - key: GOOGLE_CLIENT_ID
+    value: "${GOOGLE_CLIENT_ID}"
+    type: SECRET
+  - key: GOOGLE_API_KEY
+    value: "${GOOGLE_API_KEY}"
+    type: SECRET
+  
+  # Configuración de la Rifa
   - key: RAFFLE_NAME
-    scope: BUILD_TIME
-    value: "Rifa Pampero 2025"
+    value: "${RAFFLE_NAME}"
   - key: RAFFLE_ORGANIZATION
-    scope: BUILD_TIME
-    value: "Peña Náutica Bajada España"
+    value: "${RAFFLE_ORGANIZATION}"
   - key: RAFFLE_DRAW_DATE
-    scope: BUILD_TIME
-    value: "2025-08-31T20:00:00"
+    value: "${RAFFLE_DRAW_DATE}"
   - key: RAFFLE_PRIZE
-    scope: BUILD_TIME
-    value: "Una botella Amarula y una caja de 24 bombones Ferrero Rocher"
+    value: "${RAFFLE_PRIZE}"
   - key: RAFFLE_OBJECTIVE
-    scope: BUILD_TIME
-    value: "Juntar fondos para renovar velas, pintura y maniobra del Pampero"
+    value: "${RAFFLE_OBJECTIVE}"
   - key: RAFFLE_TOTAL_NUMBERS
-    scope: BUILD_TIME
-    value: "1000"
+    value: "${RAFFLE_TOTAL_NUMBERS}"
   - key: RAFFLE_PRICE_PER_NUMBER
-    scope: BUILD_TIME
-    value: "2000"
+    value: "${RAFFLE_PRICE_PER_NUMBER}"
   - key: RAFFLE_WHATSAPP_NUMBER
-    scope: BUILD_TIME
-    value: "+54 9 341 611-2731"
+    value: "${RAFFLE_WHATSAPP_NUMBER}"
   - key: RAFFLE_RESERVATION_TIME
-    scope: BUILD_TIME
-    value: "24"
+    value: "${RAFFLE_RESERVATION_TIME}"
   - key: RAFFLE_CLUB_INSTAGRAM
-    scope: BUILD_TIME
-    value: "@penabajadaespana"
+    value: "${RAFFLE_CLUB_INSTAGRAM}"
+  
+  # Variables de pago
+  - key: PAYMENT_MP_ALIAS
+    value: "${PAYMENT_MP_ALIAS}"
+  - key: PAYMENT_MP_CVU
+    value: "${PAYMENT_MP_CVU}"
+  - key: PAYMENT_MP_HOLDER
+    value: "${PAYMENT_MP_HOLDER}"
+  - key: PAYMENT_MP_CUIT
+    value: "${PAYMENT_MP_CUIT}"
+
+  routes:
+  - path: /
+  cors:
+    allow_origins:
+    - exact: https://ssmpnzcjhrjqhglqkmoe.supabase.co

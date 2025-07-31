@@ -9,7 +9,7 @@
     <meta name="keywords" content="rifas, sorteos, club náutico, pampero, sistema ventas">
     <meta name="author" content="Club Náutico Pampero">
     
-    <!-- Content Security Policy actualizada para Google APIs y Supabase -->
+    <!-- Content Security Policy - URL se actualiza dinámicamente en el build -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' 'unsafe-inline' 'unsafe-eval' 
@@ -92,33 +92,33 @@
 
                 <div class="form-group">
                     <label for="raffleName">Nombre de la Rifa</label>
-                    <input type="text" id="raffleName" placeholder="Ej: Rifa Pampero 2025" value="Rifa Pampero 2025">
+                    <input type="text" id="raffleName" placeholder="Ej: Rifa Pampero 2025">
                 </div>
 
                 <div class="form-group">
                     <label for="prizeDescription">Descripción del Premio</label>
-                    <textarea id="prizeDescription" rows="3" placeholder="Describe el premio que se va a rifar">Navegación recreativa en velero Pampero + curso básico de navegación</textarea>
+                    <textarea id="prizeDescription" rows="3" placeholder="Describe el premio que se va a rifar"></textarea>
                 </div>
 
                 <div class="form-group">
                     <label for="totalNumbers">Cantidad de Números</label>
-                    <input type="number" id="totalNumbers" min="100" max="1000" value="1000">
+                    <input type="number" id="totalNumbers" min="100" max="1000">
                     <small style="color: #6c757d;">Números del 0 al 999</small>
                 </div>
 
                 <div class="form-group">
                     <label for="pricePerNumber">Precio por Número ($)</label>
-                    <input type="number" id="pricePerNumber" min="1" step="0.01" value="10">
+                    <input type="number" id="pricePerNumber" min="1" step="0.01">
                 </div>
 
                 <div class="form-group">
                     <label for="organizationName">Organización</label>
-                    <input type="text" id="organizationName" placeholder="Nombre de tu organización" value="Club Náutico Pampero">
+                    <input type="text" id="organizationName" placeholder="Nombre de tu organización">
                 </div>
 
                 <div class="form-group">
                     <label for="reservationTime">Tiempo límite para reservas (horas)</label>
-                    <input type="number" id="reservationTime" min="1" max="72" value="24">
+                    <input type="number" id="reservationTime" min="1" max="168">
                     <small style="color: #6c757d;">Tiempo que tiene el usuario para confirmar el pago</small>
                 </div>
 
@@ -130,7 +130,7 @@
 
                 <div class="form-group">
                     <label for="clubInstagram">Instagram del Club (opcional)</label>
-                    <input type="text" id="clubInstagram" placeholder="@clubpampero" >
+                    <input type="text" id="clubInstagram" placeholder="@clubpampero">
                     <small style="color: #6c757d;">Se mostrará para que los compradores puedan seguir novedades sobre navegación</small>
                 </div>
 
@@ -142,7 +142,7 @@
         <div class="tab-content active" id="numbers">
             <div id="numbersContent">
                 <div class="setup-needed">
-                    <h3>🎟️ Rifa Pampero 2025</h3>
+                    <h3>🎟️ Cargando configuración...</h3>
                     <p>Cargando números de la rifa...</p>
                 </div>
             </div>
@@ -342,10 +342,13 @@
             <div id="transferInfo" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 10px 0;">
                 <h4 style="color: #0066cc; margin-bottom: 10px;">📱 Datos para Transferencia</h4>
                 <p><strong>Mercado Pago:</strong></p>
-                <p><strong>Alias:</strong> pnberosario.mp</p>
-                <p><strong>CVU:</strong> 000000310003262395392</p>
-                <p><strong>Titular:</strong> Fernando Ernesto Maumus</p>
-                <p><strong>CUIT:</strong> 20239282564</p>
+                <div id="dynamicPaymentInfo">
+                    <!-- Se llenará dinámicamente desde variables de entorno -->
+                    <p><strong>Alias:</strong> <span id="mpAlias">Cargando...</span></p>
+                    <p><strong>CVU:</strong> <span id="mpCvu">Cargando...</span></p>
+                    <p><strong>Titular:</strong> <span id="mpHolder">Cargando...</span></p>
+                    <p><strong>CUIT:</strong> <span id="mpCuit">Cargando...</span></p>
+                </div>
                 <p style="margin-top: 10px; font-size: 14px; color: #666;">
                     📝 <strong>Importante:</strong> En la descripción/concepto de la transferencia, agrega: <strong>"Rifa Náutica"</strong>
                 </p>
@@ -391,5 +394,61 @@
     <script src="js/app.js"></script>
     <!-- Verificador del sistema (solo para desarrollo) -->
     <script src="js/system-verifier.js"></script>
+
+    <!-- Script para cargar valores predeterminados desde variables de entorno -->
+    <script>
+        // Esperar a que se carguen las variables de entorno
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cargar valores predeterminados desde variables de entorno
+            if (window.ENV_RAFFLE_CONFIG) {
+                const config = window.ENV_RAFFLE_CONFIG;
+                
+                // Rellenar formulario con valores de variables de entorno
+                const raffleName = document.getElementById('raffleName');
+                const organizationName = document.getElementById('organizationName');
+                const totalNumbers = document.getElementById('totalNumbers');
+                const pricePerNumber = document.getElementById('pricePerNumber');
+                const reservationTime = document.getElementById('reservationTime');
+                const whatsappNumber = document.getElementById('whatsappNumber');
+                const clubInstagram = document.getElementById('clubInstagram');
+                const prizeDescription = document.getElementById('prizeDescription');
+                const drawDate = document.getElementById('drawDate');
+                
+                if (raffleName) raffleName.value = config.name || '';
+                if (organizationName) organizationName.value = config.organization || '';
+                if (totalNumbers) totalNumbers.value = config.totalNumbers || 1000;
+                if (pricePerNumber) pricePerNumber.value = config.pricePerNumber || 2000;
+                if (reservationTime) reservationTime.value = config.reservationTime || 108;
+                if (whatsappNumber) whatsappNumber.value = config.whatsappNumber || '';
+                if (clubInstagram) clubInstagram.value = config.clubInstagram || '';
+                if (prizeDescription) prizeDescription.value = config.prize || '';
+                if (drawDate && config.drawDate) {
+                    // Convertir formato de fecha para el input datetime-local
+                    const date = new Date(config.drawDate);
+                    const localDateTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+                        .toISOString().slice(0, 16);
+                    drawDate.value = localDateTime;
+                }
+                
+                console.log('✅ Formulario cargado con variables de entorno');
+            }
+            
+            // Cargar información de pago desde variables de entorno
+            if (window.ENV_PAYMENT_CONFIG) {
+                const paymentConfig = window.ENV_PAYMENT_CONFIG;
+                const mpAlias = document.getElementById('mpAlias');
+                const mpCvu = document.getElementById('mpCvu');
+                const mpHolder = document.getElementById('mpHolder');
+                const mpCuit = document.getElementById('mpCuit');
+                
+                if (mpAlias) mpAlias.textContent = paymentConfig.mpAlias || 'No configurado';
+                if (mpCvu) mpCvu.textContent = paymentConfig.mpCvu || 'No configurado';
+                if (mpHolder) mpHolder.textContent = paymentConfig.mpHolder || 'No configurado';
+                if (mpCuit) mpCuit.textContent = paymentConfig.mpCuit || 'No configurado';
+                
+                console.log('✅ Información de pago cargada desde variables de entorno');
+            }
+        });
+    </script>
 </body>
 </html>
