@@ -414,7 +414,7 @@ window.AdminManager = {
     },
 
     /**
-     * Confirmar pago de asignación
+     * Confirmar pago de asignación - CORREGIDO
      */
     confirmAssignmentPayment: async function(assignmentId, paymentMethod) {
         console.log(`🔍 [ADMIN] Confirmando pago de asignación ${assignmentId} con método: ${paymentMethod}`);
@@ -430,58 +430,100 @@ window.AdminManager = {
         }
 
         try {
-            if (window.SupabaseAssignmentsManager && window.SupabaseAssignmentsManager.markAsPaid) {
-                const success = await window.SupabaseAssignmentsManager.markAsPaid(assignmentId);
-                if (success) {
-                    assignment.status = 'paid';
-                    assignment.payment_method = paymentMethod;
-                    assignment.payment_date = new Date().toISOString();
-                    
-                    // Crear venta desde asignación
-                    const sale = {
-                        id: Utils.generateId(),
-                        numbers: [...assignment.numbers],
-                        buyer: {
-                            name: assignment.seller_name,
-                            lastName: assignment.seller_lastname,
-                            phone: assignment.seller_phone,
-                            email: assignment.seller_email || '',
-                            membershipArea: 'vendedor'
-                        },
-                        paymentMethod: paymentMethod,
-                        total: assignment.total_amount,
-                        status: 'paid',
-                        date: new Date(),
-                        originalAssignmentId: assignment.id
-                    };
+            // ✅ CORREGIDO: Crear venta desde asignación SIEMPRE
+            const sale = {
+                id: Utils.generateId(),
+                numbers: [...assignment.numbers],
+                buyer: {
+                    name: assignment.seller_name,
+                    lastName: assignment.seller_lastname,
+                    phone: assignment.seller_phone,
+                    email: assignment.seller_email || '',
+                    membershipArea: 'vendedor'
+                },
+                paymentMethod: paymentMethod,
+                total: assignment.total_amount,
+                status: 'paid', // ✅ SIEMPRE pagado cuando se confirma asignación
+                date: new Date(),
+                originalAssignmentId: assignment.id
+            };
 
-                    // Guardar venta
-                    if (window.SupabaseManager && window.SupabaseManager.isConnected) {
-                        await window.SupabaseManager.saveSale(sale);
-                    } else {
-                        AppState.sales.push(sale);
-                        await autoSave();
-                    }
-
-                    this.updateInterface();
-                    Utils.showNotification(`Pago confirmado como ${paymentMethod}`, 'success');
-                    
-                    console.log('✅ [ADMIN] Asignación confirmada en Supabase');
-                } else {
-                    Utils.showNotification('Error confirmando el pago en Supabase', 'error');
+            // 1. Actualizar asignación en Supabase
+            if (window.SupabaseAssignmentsManager && window.SupabaseAssignmentsManager.updateAssignment) {
+                const updateData = {
+                    status: 'paid',
+                    payment_method: paymentMethod,
+                    paid_at: new Date().toISOString()
+                };
+                
+                const success = await window.SupabaseAssignmentsManager.updateAssignment(assignmentId, updateData);
+                if (!success) {
+                    Utils.showNotification('Error actualizando asignación en Supabase', 'error');
+                    return;
                 }
-            } else {
-                // Fallback local
-                assignment.status = 'paid';
-                assignment.payment_method = paymentMethod;
-                assignment.payment_date = new Date().toISOString();
-                
-                await autoSave();
-                this.updateInterface();
-                Utils.showNotification(`Pago confirmado como ${paymentMethod} (localStorage)`, 'success');
-                
-                console.log('📱 [ADMIN] Asignación confirmada en localStorage');
             }
+            
+            // 2. Guardar venta en Supabase (SEPARADO de SupabaseManager.saveSale para evitar duplicación)
+            if (window.SupabaseManager && window.SupabaseManager.isConnected) {
+                try {
+                    const { data, error } = await window.SupabaseManager.client
+                        .from('sales')
+                        .insert([{
+                            raffle_id: 'current',
+                            numbers: sale.numbers,
+                            buyer: sale.buyer,
+                            payment_method: sale.paymentMethod,
+                            total: sale.total,
+                            status: sale.status,
+                            created_at: new Date().toISOString()
+                        }])
+                        .select();
+                        
+                    if (error) throw error;
+                    
+                    if (data && data[0]) {
+                        sale.supabaseId = data[0].id;
+                        sale.id = data[0].id;
+                        console.log('✅ [ADMIN] Venta de asignación guardada en Supabase');
+                    }
+                } catch (error) {
+                    console.error('❌ [ADMIN] Error guardando venta en Supabase:', error);
+                    // Continuar con guardado local
+                }
+            }
+            
+            // 3. Actualizar estado local SIEMPRE
+            assignment.status = 'paid';
+            assignment.payment_method = paymentMethod;
+            assignment.paid_at = new Date();
+            
+            // 4. Agregar venta al estado local SOLO si no existe
+            const existingSale = AppState.sales.find(s => 
+                s.originalAssignmentId === assignment.id || 
+                (s.numbers && JSON.stringify(s.numbers.sort()) === JSON.stringify(sale.numbers.sort()))
+            );
+            
+            if (!existingSale) {
+                AppState.sales.push(sale);
+                console.log('✅ [ADMIN] Venta de asignación agregada al estado local');
+            } else {
+                console.log('⚠️ [ADMIN] Venta ya existe, actualizando estado existente');
+                existingSale.status = 'paid';
+                existingSale.paymentMethod = paymentMethod;
+            }
+            
+            // 5. Marcar números como vendidos en UI
+            this.updateNumbersInUI(assignment.numbers, 'sold');
+            
+            // 6. Guardar en localStorage y actualizar UI
+            await autoSave();
+            this.updateInterface();
+            if (NumbersManager.updateDisplay) NumbersManager.updateDisplay();
+            if (ReportsManager.updateReports) ReportsManager.updateReports();
+            
+            Utils.showNotification(`✅ Asignación confirmada como ${paymentMethod} - Venta registrada`, 'success');
+            console.log('✅ [ADMIN] Asignación confirmada y convertida en venta exitosamente');
+            
         } catch (error) {
             console.error('❌ [ADMIN] Error confirmando pago de asignación:', error);
             Utils.showNotification('Error confirmando el pago', 'error');
@@ -655,6 +697,21 @@ window.AdminManager = {
     },
 
     // Funciones temporales para mantener compatibilidad (mejoradas)
+    /**
+     * Actualizar estado de números en la UI
+     */
+    updateNumbersInUI: function(numbers, newStatus) {
+        numbers.forEach(number => {
+            const button = document.getElementById(`number-${number}`);
+            if (button) {
+                // Remover clases de estado previas
+                button.classList.remove('available', 'reserved', 'sold', 'assigned');
+                // Agregar nueva clase
+                button.classList.add(newStatus);
+            }
+        });
+    },
+
     markAssignmentAsPaid: function(assignmentId) {
         // Redirigir a la nueva función mejorada
         this.confirmAssignmentPayment(assignmentId, 'efectivo');

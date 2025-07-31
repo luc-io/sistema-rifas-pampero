@@ -68,7 +68,15 @@ window.AdminStats = {
         const totalRevenue = AppState.sales.filter(sale => sale.status === 'paid').reduce((sum, sale) => sum + sale.total, 0);
         const pendingRevenue = AppState.sales.filter(sale => sale.status === 'pending').reduce((sum, sale) => sum + sale.total, 0);
         const reservedCount = AppState.reservations.filter(r => r.status === 'active').reduce((sum, r) => sum + r.numbers.length, 0);
-        const availableCount = AppState.raffleConfig.totalNumbers - soldCount - reservedCount;
+        
+        // ✅ CORREGIDO: Incluir números asignados (que no están vendidos aún) en el cálculo
+        const assignedCount = AppState.assignments 
+            ? AppState.assignments
+                .filter(a => a.status === 'assigned' || a.status === 'pending')
+                .reduce((sum, assignment) => sum + (assignment.numbers ? assignment.numbers.length : 0), 0)
+            : 0;
+        
+        const availableCount = AppState.raffleConfig.totalNumbers - soldCount - reservedCount - assignedCount;
         
         // Estadísticas de compradores
         const buyerStats = this.getBuyerStats();

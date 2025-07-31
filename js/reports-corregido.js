@@ -1,7 +1,7 @@
 /**
- * REPORTES Y ESTADÍSTICAS - Sistema de Rifas Pampero
+ * REPORTES Y ESTADÍSTICAS - Sistema de Rifas Pampero (CORREGIDO)
  * Generación de reportes simplificados y optimizados
- * CORREGIDO: Usar datos actuales y evitar datos viejos
+ * CORREGIDO: Incluir asignaciones pagadas como ventas finales
  */
 
 window.ReportsManager = {
@@ -115,7 +115,10 @@ window.ReportsManager = {
             assignedNumbers,
             reservedNumbers,
             reallyAvailableNumbers,
-            percentageSold: percentageSold.toFixed(1)
+            percentageSold: percentageSold.toFixed(1),
+            efectivoConfirmado,
+            transferenciaConfirmada,
+            transferenciaPendiente
         });
 
         const container = document.getElementById('generalReport');
@@ -131,6 +134,7 @@ window.ReportsManager = {
                         <div class="summary-stat">
                             <div class="number">${totalSales}</div>
                             <div class="label">Ventas Realizadas</div>
+                            <div class="sublabel">(Incluye asignaciones)</div>
                         </div>
                         <div class="summary-stat">
                             <div class="number">${confirmedNumbers}</div>
@@ -164,24 +168,51 @@ window.ReportsManager = {
                             <div class="number">${Utils.formatPrice(pendingRevenue)}</div>
                             <div class="label">Ingresos Pendientes</div>
                         </div>
-                        <div class="summary-stat">
+                        <div class="summary-stat" style="background: #e8f5e8; border: 2px solid #4CAF50;">
                             <div class="number">${Utils.formatPrice(efectivoConfirmado)}</div>
-                            <div class="label">Cobrado Efectivo</div>
+                            <div class="label">💰 Cobrado Efectivo</div>
                             <div class="sublabel">(Confirmado)</div>
                         </div>
-                        <div class="summary-stat">
+                        <div class="summary-stat" style="background: #e1f5fe; border: 2px solid #2196F3;">
                             <div class="number">${Utils.formatPrice(transferenciaConfirmada)}</div>
-                            <div class="label">Cobrado Transferencia</div>
+                            <div class="label">💳 Cobrado Transferencia</div>
                             <div class="sublabel">(Confirmado)</div>
                         </div>
-                        <div class="summary-stat">
+                        <div class="summary-stat" style="background: #fff3e0; border: 2px solid #ff9800;">
                             <div class="number">${Utils.formatPrice(transferenciaPendiente)}</div>
-                            <div class="label">Transferencia Pendiente</div>
+                            <div class="label">⏳ Transferencia Pendiente</div>
                             <div class="sublabel">(Por confirmar)</div>
                         </div>
                         <div class="summary-stat">
                             <div class="number">${percentageSold.toFixed(1)}%</div>
                             <div class="label">Porcentaje Vendido</div>
+                        </div>
+                    </div>
+                    
+                    <!-- ✅ NUEVO: Resumen de Cobros -->
+                    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <h4 style="color: #155724; margin-bottom: 15px;">💰 Resumen de Cobros Confirmados</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                            <div style="background: #d4edda; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #c3e6cb;">
+                                <div style="font-size: 18px; font-weight: bold; color: #155724;">💰 ${Utils.formatPrice(efectivoConfirmado)}</div>
+                                <div style="color: #155724; font-size: 14px;">Efectivo Cobrado</div>
+                                <div style="color: #6c757d; font-size: 12px;">Dinero en caja</div>
+                            </div>
+                            <div style="background: #cce7ff; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #97d4ff;">
+                                <div style="font-size: 18px; font-weight: bold; color: #004085;">💳 ${Utils.formatPrice(transferenciaConfirmada)}</div>
+                                <div style="color: #004085; font-size: 14px;">Transferencias Confirmadas</div>
+                                <div style="color: #6c757d; font-size: 12px;">Dinero en cuenta</div>
+                            </div>
+                            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #ffeaa7;">
+                                <div style="font-size: 18px; font-weight: bold; color: #856404;">⏳ ${Utils.formatPrice(transferenciaPendiente)}</div>
+                                <div style="color: #856404; font-size: 14px;">Transferencias Pendientes</div>
+                                <div style="color: #6c757d; font-size: 12px;">Por confirmar</div>
+                            </div>
+                            <div style="background: #e2e3e5; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #d1d3d4;">
+                                <div style="font-size: 18px; font-weight: bold; color: #383d41;">📊 ${Utils.formatPrice(totalRevenue)}</div>
+                                <div style="color: #383d41; font-size: 14px;">Total Cobrado</div>
+                                <div style="color: #6c757d; font-size: 12px;">Efectivo + Transferencias</div>
+                            </div>
                         </div>
                     </div>
                     
@@ -286,10 +317,20 @@ window.ReportsManager = {
      * Reporte de membresía del club - CORREGIDO
      */
     generateMembershipReport: function() {
-        // USAR DATOS ACTUALES directamente
+        // ✅ CORREGIDO: Incluir asignaciones pagadas en estadísticas de membresía
         const sales = AppState.sales || [];
+        const assignments = AppState.assignments || [];
         
-        console.log(`📊 [REPORTS] Generando reporte de membresía con ${sales.length} ventas`);
+        // Obtener asignaciones pagadas como ventas de vendedores
+        const paidAssignments = assignments.filter(a => a.status === 'paid');
+        const paidAssignmentSales = paidAssignments.map(a => ({
+            buyer: { membershipArea: 'vendedor' }
+        }));
+        
+        // Combinar todas las ventas incluyendo asignaciones pagadas
+        const allSales = [...sales, ...paidAssignmentSales];
+        
+        console.log(`📊 [REPORTS] Generando reporte de membresía con ${sales.length} ventas + ${paidAssignments.length} asignaciones pagadas`);
         
         const membershipData = {
             'no_socio': 0,
@@ -298,12 +339,12 @@ window.ReportsManager = {
             'ecologia': 0,
             'pesca': 0,
             'ninguna': 0,
-            'vendedor': 0, // Nuevo: para asignaciones confirmadas
+            'vendedor': 0, // Incluye asignaciones confirmadas
             '': 0
         };
 
-        // Contar por área de membresía usando datos actuales
-        sales.forEach(sale => {
+        // Contar por área de membresía usando todos los datos
+        allSales.forEach(sale => {
             const membershipArea = (sale.buyer && sale.buyer.membershipArea) ? sale.buyer.membershipArea : '';
             if (membershipData.hasOwnProperty(membershipArea)) {
                 membershipData[membershipArea]++;
@@ -312,7 +353,7 @@ window.ReportsManager = {
             }
         });
 
-        const totalResponses = sales.length;
+        const totalResponses = allSales.length;
         const totalMembers = totalResponses - membershipData['no_socio'] - membershipData[''] - membershipData['vendedor'];
         const totalNonMembers = membershipData['no_socio'];
         const totalVendors = membershipData['vendedor'];
@@ -414,7 +455,7 @@ window.ReportsManager = {
                     </table>
                     
                     <div style="margin-top: 15px; font-size: 12px; color: #666; text-align: center;">
-                        Datos basados en ${totalResponses} ventas registradas | Actualizado: ${new Date().toLocaleString('es-AR')}
+                        Datos basados en ${totalResponses} ventas registradas (incluyendo asignaciones pagadas) | Actualizado: ${new Date().toLocaleString('es-AR')}
                     </div>
                 </div>
             </div>
@@ -439,7 +480,7 @@ window.ReportsManager = {
     },
 
     /**
-     * Exportar reporte general - ACTUALIZADO
+     * Exportar reporte general - CORREGIDO
      */
     exportGeneralReport: function() {
         const sales = AppState.sales || [];
@@ -448,22 +489,34 @@ window.ReportsManager = {
         const confirmedSales = sales.filter(s => s.status === 'paid');
         const pendingSales = sales.filter(s => s.status === 'pending');
         
-        const totalSales = sales.length;
-        const totalNumbers = sales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
-        const confirmedNumbers = confirmedSales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
+        // ✅ CORREGIDO: Incluir asignaciones pagadas en estadísticas de exportación
+        const paidAssignments = assignments.filter(a => a.status === 'paid');
+        const paidAssignmentSales = paidAssignments.map(a => ({
+            numbers: a.numbers,
+            total: a.total_amount,
+            paymentMethod: a.payment_method || 'efectivo',
+            status: 'paid'
+        }));
+        
+        const allConfirmedSales = [...confirmedSales, ...paidAssignmentSales];
+        const allSales = [...sales, ...paidAssignmentSales];
+        
+        const totalSales = allSales.length;
+        const totalNumbers = allSales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
+        const confirmedNumbers = allConfirmedSales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
         const pendingNumbers = pendingSales.reduce((sum, sale) => sum + (sale.numbers ? sale.numbers.length : 0), 0);
         const assignedNumbers = assignments
             .filter(a => a.status === 'assigned' || a.status === 'pending')
             .reduce((sum, assignment) => sum + (assignment.numbers ? assignment.numbers.length : 0), 0);
         
-        const totalRevenue = confirmedSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
+        const totalRevenue = allConfirmedSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
         const pendingRevenue = pendingSales.reduce((sum, sale) => sum + (sale.total || 0), 0);
         
-        // ✅ NUEVO: Calcular totales por método de pago para exportación
-        const efectivoConfirmado = confirmedSales
+        // ✅ CORREGIDO: Calcular totales por método de pago incluyendo asignaciones
+        const efectivoConfirmado = allConfirmedSales
             .filter(s => s.paymentMethod === 'efectivo')
             .reduce((sum, sale) => sum + (sale.total || 0), 0);
-        const transferenciaConfirmada = confirmedSales
+        const transferenciaConfirmada = allConfirmedSales
             .filter(s => s.paymentMethod === 'transferencia')
             .reduce((sum, sale) => sum + (sale.total || 0), 0);
         const transferenciaPendiente = pendingSales
@@ -475,13 +528,13 @@ window.ReportsManager = {
         const reallyAvailableNumbers = AppState.raffleConfig ? AppState.raffleConfig.totalNumbers - occupiedNumbers : 0;
 
         let csvContent = "Métrica,Valor,Fecha_Generacion\n";
-        csvContent += `"Total de ventas","${totalSales}","${new Date().toISOString()}"\n`;
+        csvContent += `"Total de ventas (incluye asignaciones)","${totalSales}","${new Date().toISOString()}"\n`;
         csvContent += `"Números vendidos confirmados","${confirmedNumbers}","${new Date().toISOString()}"\n`;
         csvContent += `"Números vendidos pendientes","${pendingNumbers}","${new Date().toISOString()}"\n`;
         csvContent += `"Total números vendidos","${totalNumbers}","${new Date().toISOString()}"\n`;
         csvContent += `"Números asignados a vendedores","${assignedNumbers}","${new Date().toISOString()}"\n`;
         csvContent += `"Números realmente disponibles","${reallyAvailableNumbers}","${new Date().toISOString()}"\n`;
-        csvContent += `"Ingresos confirmados","${totalRevenue}","${new Date().toISOString()}"\n`;
+        csvContent += `"Ingresos confirmados (incluye asignaciones)","${totalRevenue}","${new Date().toISOString()}"\n`;
         csvContent += `"Ingresos pendientes","${pendingRevenue}","${new Date().toISOString()}"\n`;
         csvContent += `"Ingresos totales","${totalRevenue + pendingRevenue}","${new Date().toISOString()}"\n`;
         csvContent += `"Cobrado en efectivo","${efectivoConfirmado}","${new Date().toISOString()}"\n`;
@@ -489,16 +542,25 @@ window.ReportsManager = {
         csvContent += `"Transferencias pendientes","${transferenciaPendiente}","${new Date().toISOString()}"\n`;
         csvContent += `"Porcentaje vendido","${percentageSold.toFixed(1)}%","${new Date().toISOString()}"\n`;
 
-        const filename = `reporte_general_${DateUtils.formatForInput(new Date())}.csv`;
+        const filename = `reporte_general_corregido_${DateUtils.formatForInput(new Date())}.csv`;
         Utils.downloadCSV(csvContent, filename);
         Utils.showNotification('Reporte general exportado correctamente', 'success');
     },
 
     /**
-     * Exportar reporte de membresía - ACTUALIZADO
+     * Exportar reporte de membresía - CORREGIDO
      */
     exportMembershipReport: function() {
         const sales = AppState.sales || [];
+        const assignments = AppState.assignments || [];
+        
+        // ✅ CORREGIDO: Incluir asignaciones pagadas
+        const paidAssignments = assignments.filter(a => a.status === 'paid');
+        const paidAssignmentSales = paidAssignments.map(a => ({
+            buyer: { membershipArea: 'vendedor' }
+        }));
+        
+        const allSales = [...sales, ...paidAssignmentSales];
         
         let csvContent = "Relación con el Club,Cantidad,Porcentaje,Fecha_Generacion\n";
         
@@ -513,7 +575,7 @@ window.ReportsManager = {
             '': 0
         };
 
-        sales.forEach(sale => {
+        allSales.forEach(sale => {
             const membershipArea = (sale.buyer && sale.buyer.membershipArea) ? sale.buyer.membershipArea : '';
             if (membershipData.hasOwnProperty(membershipArea)) {
                 membershipData[membershipArea]++;
@@ -522,7 +584,7 @@ window.ReportsManager = {
             }
         });
 
-        const totalResponses = sales.length;
+        const totalResponses = allSales.length;
         const currentDate = new Date().toISOString();
 
         Object.entries(membershipData)
@@ -533,10 +595,10 @@ window.ReportsManager = {
                 csvContent += `"${label}","${count}","${percentage}%","${currentDate}"\n`;
             });
 
-        const filename = `reporte_membresia_${DateUtils.formatForInput(new Date())}.csv`;
+        const filename = `reporte_membresia_corregido_${DateUtils.formatForInput(new Date())}.csv`;
         Utils.downloadCSV(csvContent, filename);
         Utils.showNotification('Reporte de membresía exportado correctamente', 'success');
     }
 };
 
-console.log('✅ Reports.js corregido y actualizado cargado correctamente');
+console.log('✅ Reports.js CORREGIDO cargado correctamente - Incluye asignaciones pagadas como ventas finales');

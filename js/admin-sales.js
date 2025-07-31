@@ -238,7 +238,7 @@ window.AdminSales = {
     },
 
     /**
-     * Marcar pago como confirmado
+     * Marcar pago como confirmado - CORREGIDO
      */
     markAsPaid: async function(saleId) {
         console.log(`🔍 [SALES] Intentando marcar como pagado - Sale ID: ${saleId}`);
@@ -250,22 +250,46 @@ window.AdminSales = {
             return;
         }
         
+        if (sale.status === 'paid') {
+            Utils.showNotification('Esta venta ya está marcada como pagada', 'warning');
+            return;
+        }
+        
         try {
+            // 1. Actualizar en Supabase primero
             if (window.SupabaseManager && window.SupabaseManager.isConnected) {
                 const success = await window.SupabaseManager.markSaleAsPaid(saleId);
-                if (success) {
-                    sale.status = 'paid';
-                    AdminManager.updateInterface();
-                    Utils.showNotification('Pago marcado como confirmado', 'success');
-                } else {
+                if (!success) {
                     Utils.showNotification('Error actualizando el pago en Supabase', 'error');
+                    return;
                 }
-            } else {
-                sale.status = 'paid';
-                await autoSave();
-                AdminManager.updateInterface();
-                Utils.showNotification('Pago marcado como confirmado (localStorage)', 'success');
+                console.log('✅ [SALES] Venta actualizada en Supabase');
             }
+            
+            // 2. Actualizar estado local SIEMPRE
+            sale.status = 'paid';
+            sale.paid_at = new Date(); // Agregar timestamp de pago
+            
+            // 3. Actualizar números en UI si no están marcados como vendidos
+            if (sale.numbers && sale.numbers.length > 0) {
+                sale.numbers.forEach(number => {
+                    const button = document.getElementById(`number-${number}`);
+                    if (button && !button.classList.contains('sold')) {
+                        button.classList.remove('reserved', 'available');
+                        button.classList.add('sold');
+                    }
+                });
+            }
+            
+            // 4. Guardar en localStorage y actualizar toda la interfaz
+            await autoSave();
+            AdminManager.updateInterface();
+            if (NumbersManager.updateDisplay) NumbersManager.updateDisplay();
+            if (ReportsManager.updateReports) ReportsManager.updateReports();
+            
+            Utils.showNotification('✅ Pago marcado como confirmado', 'success');
+            console.log(`✅ [SALES] Venta ${saleId} marcada como pagada exitosamente`);
+            
         } catch (error) {
             console.error('❌ [SALES] Error marcando pago:', error);
             Utils.showNotification('Error actualizando el pago', 'error');

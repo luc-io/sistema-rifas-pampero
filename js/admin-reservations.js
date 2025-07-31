@@ -114,6 +114,13 @@ window.AdminReservations = {
                 await window.SupabaseManager.saveSale(sale);
                 await window.SupabaseManager.updateReservationStatus(reservationId, 'confirmed');
                 console.log('✅ [RESERVATIONS] Reserva confirmada en Supabase');
+                
+                // ✅ CORREGIDO: Agregar venta al estado local SOLO si no está ya
+                const existingSale = AppState.sales.find(s => s.id === sale.id);
+                if (!existingSale) {
+                    AppState.sales.push(sale);
+                    console.log('✅ [RESERVATIONS] Venta agregada al estado local');
+                }
             } else {
                 AppState.sales.push(sale);
                 reservation.status = 'confirmed';
@@ -127,8 +134,11 @@ window.AdminReservations = {
             // Marcar números como vendidos en UI
             this.updateNumbersInUI(reservation.numbers, 'sold');
             
+            // ✅ CORREGIDO: Forzar actualización completa de la interfaz
+            await autoSave();
             AdminManager.updateInterface();
             if (NumbersManager.updateDisplay) NumbersManager.updateDisplay();
+            if (ReportsManager.updateReports) ReportsManager.updateReports();
             
             // Mostrar modal de confirmación
             this.showConfirmationModal(sale);
