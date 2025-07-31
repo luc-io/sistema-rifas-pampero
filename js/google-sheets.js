@@ -494,19 +494,76 @@ window.GoogleSheetsManager = {
     },
     
     /**
-     * Verificar disponibilidad de datos
+     * Verificar disponibilidad de datos MEJORADO
      */
     checkDataAvailability: function() {
-        const hasSales = !!(AppState?.sales && Array.isArray(AppState.sales) && AppState.sales.length > 0);
-        const hasAssignments = !!(AppState?.assignments && Array.isArray(AppState.assignments) && AppState.assignments.length > 0);
-        const hasRaffleConfig = !!(AppState?.raffleConfig && AppState.raffleConfig.name);
+        // Verificar si la aplicación está inicializada
+        if (!window.AppState) {
+            return {
+                hasSales: false,
+                hasAssignments: false,
+                hasRaffleConfig: false,
+                totalData: 0,
+                status: 'not_initialized',
+                message: 'Aplicación no inicializada'
+            };
+        }
+        
+        // Verificar si hay configuración de rifa
+        const hasRaffleConfig = !!(AppState.raffleConfig && AppState.raffleConfig.name);
+        
+        if (!hasRaffleConfig) {
+            return {
+                hasSales: false,
+                hasAssignments: false,
+                hasRaffleConfig: false,
+                totalData: 0,
+                status: 'no_raffle_config',
+                message: 'No hay rifa configurada'
+            };
+        }
+        
+        // Verificar datos
+        const hasSales = !!(AppState.sales && Array.isArray(AppState.sales) && AppState.sales.length > 0);
+        const hasAssignments = !!(AppState.assignments && Array.isArray(AppState.assignments) && AppState.assignments.length > 0);
+        const totalData = (hasSales ? 1 : 0) + (hasAssignments ? 1 : 0);
+        
+        // Determinar estado
+        let status, message;
+        
+        if (totalData === 0) {
+            // Verificar si Supabase está conectado para distinguir entre "sin datos" y "no cargado"
+            if (window.SupabaseManager && SupabaseManager.isConnected) {
+                status = 'no_data';
+                message = 'Sin ventas ni asignaciones registradas aún';
+            } else {
+                status = 'loading';
+                message = 'Cargando datos desde la base de datos...';
+            }
+        } else {
+            status = 'has_data';
+            const parts = [];
+            if (hasSales) parts.push(`${AppState.sales.length} ventas`);
+            if (hasAssignments) parts.push(`${AppState.assignments.length} asignaciones`);
+            message = `Listo para sincronizar: ${parts.join(' y ')}`;
+        }
         
         return {
             hasSales,
             hasAssignments,
             hasRaffleConfig,
-            totalData: (hasSales ? 1 : 0) + (hasAssignments ? 1 : 0)
+            totalData,
+            status,
+            message
         };
+    },
+    
+    /**
+     * Forzar actualización del estado después de cargar datos
+     */
+    refreshDataStatus: function() {
+        console.log('🔄 [SHEETS] Actualizando estado de datos...');
+        this.updateUIStatus();
     },
 
     /**
@@ -517,18 +574,66 @@ window.GoogleSheetsManager = {
             Utils.showNotification('Sincronizando con Google Sheets...', 'info');
             
             // Verificar que la aplicación esté inicializada
-            if (!AppState || !AppState.initialized) {
-                Utils.showNotification('La aplicación no está inicializada', 'error');
+            if (!AppState || !AppState.raffleConfig) {
+                Utils.showNotification('La aplicación no está completamente inicializada', 'warning');
+                
+                // Intentar forzar inicialización
+                if (window.RaffleApp && RaffleApp.init) {
+                    console.log('🔄 [SHEETS] Intentando inicializar aplicación...');
+                    RaffleApp.init();
+                    // Esperar un momento para que se carguen los datos
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+            
+            // Verificar disponibilidad de datos actualizada
+            const dataStatus = this.checkDataAvailability();
+            console.log('📊 [SHEETS] Estado de datos antes de sync:', dataStatus);
+            
+            if (dataStatus.status === 'not_initialized') {
+                Utils.showNotification('Error: Aplicación no inicializada', 'error');
                 return;
             }
             
-            // Verificar disponibilidad de datos
-            const dataStatus = this.checkDataAvailability();
-            console.log('📊 [SHEETS] Estado de datos:', dataStatus);
-            
-            if (dataStatus.totalData === 0) {
-                Utils.showNotification('No hay datos para sincronizar', 'info');
+            if (dataStatus.status === 'no_raffle_config') {
+                Utils.showNotification('Configura una rifa primero', 'warning');
                 return;
+            }
+            
+            // Si no hay datos, ofrecer opciones
+            if (dataStatus.totalData === 0) {
+                if (dataStatus.status === 'loading') {
+                    // Intentar cargar datos desde Supabase
+                    console.log('🔄 [SHEETS] Intentando cargar datos desde Supabase...');
+                    
+                    if (window.SupabaseManager && SupabaseManager.isConnected) {
+                        try {
+                            // Forzar recarga de datos
+                            if (window.AdminManager && AdminManager.loadAllData) {
+                                await AdminManager.loadAllData();
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                
+                                // Verificar datos nuevamente
+                                const newDataStatus = this.checkDataAvailability();
+                                if (newDataStatus.totalData === 0) {
+                                    Utils.showNotification('No hay ventas ni asignaciones registradas para sincronizar', 'info');
+                                    this.refreshDataStatus();
+                                    return;
+                                }
+                            }
+                        } catch (loadError) {
+                            console.error('❌ [SHEETS] Error cargando datos:', loadError);
+                            Utils.showNotification('Error cargando datos desde la base', 'error');
+                            return;
+                        }
+                    } else {
+                        Utils.showNotification('Base de datos no conectada', 'warning');
+                        return;
+                    }
+                } else {
+                    Utils.showNotification('No hay datos para sincronizar', 'info');
+                    return;
+                }
             }
             
             let syncCount = 0;
@@ -556,13 +661,17 @@ window.GoogleSheetsManager = {
                 }
             }
             
+            // Resultado final
             if (syncCount === 0 && errors.length > 0) {
                 Utils.showNotification(`Error sincronizando: ${errors.join(', ')}`, 'error');
             } else if (syncCount > 0) {
                 const message = errors.length > 0 
-                    ? `Datos sincronizados (${syncCount} de ${dataStatus.totalData} tablas)` 
-                    : `Datos sincronizados exitosamente (${syncCount} tablas)`;
+                    ? `Parcialmente sincronizado (${syncCount} de ${dataStatus.totalData} tablas)` 
+                    : `✅ Datos sincronizados exitosamente (${syncCount} tablas)`;
                 Utils.showNotification(message, syncCount === dataStatus.totalData ? 'success' : 'warning');
+                
+                // Actualizar estado después de sincronización exitosa
+                this.refreshDataStatus();
             }
         } catch (error) {
             console.error('❌ [SHEETS] Error sincronizando:', error);
@@ -614,7 +723,7 @@ window.GoogleSheetsManager = {
     },
     
     /**
-     * Actualizar estado en la UI
+     * Actualizar estado en la UI MEJORADO
      */
     updateUIStatus: function() {
         const indicator = document.getElementById('sheetsConnectionIndicator');
@@ -632,35 +741,77 @@ window.GoogleSheetsManager = {
             
             // Verificar disponibilidad de datos
             const dataStatus = this.checkDataAvailability();
-            const hasDataToSync = dataStatus.totalData > 0;
+            console.log('📊 [SHEETS] Estado de datos:', dataStatus);
             
             if (this.config.isSignedIn) {
                 indicator.style.background = '#28a745';
-                text.textContent = 'Conectado';
-                details.textContent = this.config.spreadsheetId ? 
-                    `Hoja configurada: ${this.config.spreadsheetId.substring(0, 10)}...` : 
-                    'Listo para crear hoja de cálculo';
-                createBtn.disabled = false;
-                syncBtn.disabled = !this.config.spreadsheetId || !hasDataToSync;
+                text.textContent = 'Autenticado exitosamente';
                 
-                // Actualizar tooltip
-                if (!hasDataToSync) {
+                // Mensaje detallado basado en el estado de datos
+                if (this.config.spreadsheetId) {
+                    const sheetId = this.config.spreadsheetId.substring(0, 10) + '...';
+                    details.innerHTML = `
+                        <div>📄 Hoja: ${sheetId}</div>
+                        <div style="margin-top: 5px; font-size: 11px;">
+                            📊 ${dataStatus.message}
+                        </div>
+                    `;
+                } else {
+                    details.innerHTML = `
+                        <div>✅ Listo para crear hoja de cálculo</div>
+                        <div style="margin-top: 5px; font-size: 11px;">
+                            📊 ${dataStatus.message}
+                        </div>
+                    `;
+                }
+                
+                createBtn.disabled = false;
+                
+                // Lógica mejorada para el botón de sincronización
+                const canSync = this.config.spreadsheetId && 
+                               (dataStatus.totalData > 0 || dataStatus.status === 'loading');
+                
+                syncBtn.disabled = !canSync;
+                
+                // Actualizar texto del botón según el estado
+                if (!this.config.spreadsheetId) {
+                    syncBtn.textContent = '🔄 Sin Hoja';
+                    syncBtn.title = 'Crea una hoja de cálculo primero';
+                } else if (dataStatus.status === 'loading') {
+                    syncBtn.textContent = '🔄 Cargar y Sync';
+                    syncBtn.title = 'Forzar carga de datos y sincronizar';
+                } else if (dataStatus.totalData === 0) {
+                    syncBtn.textContent = '🔄 Sin Datos';
                     syncBtn.title = 'No hay datos para sincronizar';
                 } else {
-                    syncBtn.title = `Sincronizar ${dataStatus.hasSales ? 'ventas' : ''}${dataStatus.hasSales && dataStatus.hasAssignments ? ' y ' : ''}${dataStatus.hasAssignments ? 'asignaciones' : ''}`;
+                    syncBtn.textContent = '🔄 Sincronizar';
+                    syncBtn.title = `Sincronizar ${dataStatus.message}`;
                 }
+                
             } else if (this.config.isInitialized) {
                 indicator.style.background = '#ffc107';
-                text.textContent = 'Inicializado (no conectado)';
-                details.textContent = 'Haz clic en "Configurar" para conectar';
+                text.textContent = 'Listo para autenticar';
+                details.innerHTML = `
+                    <div>🔑 Haz clic en "Configurar" para conectar</div>
+                    <div style="margin-top: 5px; font-size: 11px;">
+                        📊 ${dataStatus.message}
+                    </div>
+                `;
                 createBtn.disabled = true;
                 syncBtn.disabled = true;
+                syncBtn.textContent = '🔄 No Autenticado';
             } else {
                 indicator.style.background = '#dc3545';
                 text.textContent = 'No configurado';
-                details.textContent = 'Configura las credenciales primero';
+                details.innerHTML = `
+                    <div>⚙️ Configura las credenciales primero</div>
+                    <div style="margin-top: 5px; font-size: 11px;">
+                        📊 ${dataStatus.message}
+                    </div>
+                `;
                 createBtn.disabled = true;
                 syncBtn.disabled = true;
+                syncBtn.textContent = '🔄 No Configurado';
             }
         } catch (error) {
             console.error('❌ [SHEETS] Error actualizando estado UI:', error);
