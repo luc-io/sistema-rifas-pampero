@@ -133,6 +133,127 @@ window.RaffleApp = {
     },
     
     /**
+     * Inicializar configuración predefinida de rifa
+     */
+    initPredefinedRaffle: function() {
+        console.log('🎟️ [SETUP] Inicializando rifa predefinida...');
+        
+        // Obtener configuración predefinida del AppConfig
+        if (!window.AppConfig) {
+            console.error('❌ [SETUP] AppConfig no disponible');
+            return false;
+        }
+        
+        const predefinedConfig = AppConfig.getPredefinedRaffleConfig();
+        
+        // Verificar si ya existe una rifa configurada
+        if (AppState.raffleConfig && !this.shouldReplaceExistingRaffle()) {
+            console.log('📊 [SETUP] Rifa existente mantenida');
+            return true;
+        }
+        
+        // Limpiar datos anteriores si existen
+        if (AppState.raffleConfig) {
+            console.log('🧽 [SETUP] Limpiando datos anteriores...');
+            this.cleanPreviousRaffleData();
+        }
+        
+        // Establecer nueva configuración
+        AppState.raffleConfig = predefinedConfig;
+        
+        // Actualizar header
+        document.getElementById('raffleTitle').textContent = predefinedConfig.name;
+        const drawDateFormatted = Utils.formatDateTime(predefinedConfig.drawDate);
+        document.getElementById('raffleSubtitle').textContent = 
+            `${predefinedConfig.organization} - ${predefinedConfig.price} por número - Sorteo: ${drawDateFormatted}`;
+        
+        // Guardar configuración
+        this.savePredefinedConfig(predefinedConfig);
+        
+        console.log('✅ [SETUP] Rifa predefinida inicializada:', predefinedConfig.name);
+        return true;
+    },
+    
+    /**
+     * Determinar si se debe reemplazar una rifa existente
+     */
+    shouldReplaceExistingRaffle: function() {
+        // Si la rifa actual ya es predefinida y tiene la misma fecha, mantenerla
+        if (AppState.raffleConfig.isPredefined) {
+            const currentDate = AppState.raffleConfig.drawDate.toISOString().slice(0, 10);
+            const predefinedDate = AppConfig.raffle.drawDate.slice(0, 10);
+            
+            if (currentDate === predefinedDate) {
+                return false; // No reemplazar
+            }
+        }
+        
+        // Si tiene ventas activas, preguntar al usuario
+        if (AppState.sales.length > 0) {
+            const salesCount = AppState.sales.length;
+            const totalRevenue = AppState.sales.filter(s => s.status === 'paid').reduce((sum, s) => sum + s.total, 0);
+            
+            return confirm(
+                `⚠️ ADVERTENCIA: DATOS EXISTENTES\n\n` +
+                `📈 Ventas registradas: ${salesCount}\n` +
+                `💵 Ingresos confirmados: ${Utils.formatPrice(totalRevenue)}\n\n` +
+                `La nueva configuración predefinida eliminará estos datos.\n\n` +
+                `¿Continuar y reemplazar la rifa actual?`
+            );
+        }
+        
+        return true; // Reemplazar si no hay datos importantes
+    },
+    
+    /**
+     * Limpiar datos de rifa anterior
+     */
+    cleanPreviousRaffleData: function() {
+        // Archivar si tiene datos importantes
+        if (AppState.sales.length > 0) {
+            this.archiveCurrentRaffle();
+        }
+        
+        // Limpiar estado
+        AppState.sales = [];
+        AppState.reservations = [];
+        AppState.assignments = [];
+        AppState.numberOwners = [];
+        AppState.selectedNumbers = [];
+        AppState.currentAction = 'buy';
+        AppState.selectedBuyer = null;
+        
+        // Limpiar almacenamiento
+        Storage.save('sales', []);
+        Storage.save('reservations', []);
+        Storage.save('assignments', []);
+        Storage.save('numberOwners', []);
+        
+        console.log('✅ [SETUP] Datos anteriores limpiados');
+    },
+    
+    /**
+     * Guardar configuración predefinida
+     */
+    savePredefinedConfig: async function(config) {
+        try {
+            if (window.SupabaseManager && SupabaseManager.isConnected) {
+                await SupabaseManager.saveRaffleConfig(config);
+                console.log('✅ [SETUP] Configuración guardada en Supabase');
+                Utils.showNotification('Rifa inicializada correctamente', 'success');
+            } else {
+                autoSave();
+                console.log('📱 [SETUP] Configuración guardada en localStorage');
+                Utils.showNotification('Rifa inicializada (modo local)', 'info');
+            }
+        } catch (error) {
+            console.error('❌ [SETUP] Error guardando configuración:', error);
+            autoSave(); // Fallback
+            Utils.showNotification('Rifa inicializada con limitaciones', 'warning');
+        }
+    },
+    
+    /**
      * Archivar rifa actual antes de crear nueva
      */
     archiveCurrentRaffle: function() {
@@ -331,9 +452,51 @@ window.RaffleApp = {
         // Luego cargar datos (que ahora usará Supabase si está disponible)
         setTimeout(() => {
             loadFromStorage();
-        }, 500); // Pequeño delay para permitir que Supabase se inicialice
+            
+            // ✅ NUEVO: Inicializar rifa predefinida automáticamente
+            setTimeout(() => {
+                if (!AppState.raffleConfig || AppState.raffleConfig.isPredefined !== true) {
+                    console.log('🔄 [INIT] Inicializando rifa predefinida...');
+                    this.initPredefinedRaffle();
+                    
+                    // Inicializar interfaces con la nueva configuración
+                    setTimeout(() => {
+                        this.initializeAllInterfaces();
+                    }, 500);
+                } else {
+                    console.log('✅ [INIT] Rifa predefinida ya inicializada');
+                }
+            }, 1000);
+        }, 500);
         
         console.log('✅ RaffleApp inicializado correctamente');
+    },
+    
+    /**
+     * Inicializar todas las interfaces
+     */
+    initializeAllInterfaces: function() {
+        if (typeof NumbersManager !== 'undefined') {
+            NumbersManager.init();
+        }
+        
+        if (typeof AssignmentsManager !== 'undefined') {
+            AssignmentsManager.createInterface();
+        }
+        
+        if (typeof AdminManager !== 'undefined') {
+            AdminManager.createInterface();
+        }
+        
+        if (typeof ReportsManager !== 'undefined') {
+            ReportsManager.updateReports();
+        }
+        
+        if (typeof UtilitiesManager !== 'undefined') {
+            UtilitiesManager.init();
+        }
+        
+        console.log('✅ [INIT] Todas las interfaces inicializadas');
     }
 };
 

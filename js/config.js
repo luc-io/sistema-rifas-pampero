@@ -18,11 +18,17 @@ window.AppConfig = {
         environment: 'production'
     },
 
+    // 🎟️ Configuración predefinida de la rifa (desde variables de entorno)
+    raffle: null, // Se inicializará desde variables de entorno
+
     /**
-     * 🔧 Inicializar configuración desde variables de entorno o prompt
+     * 🎛️ Inicializar configuración desde variables de entorno o prompt
      */
     init: function() {
         console.log('🔧 Inicializando configuración segura...');
+        
+        // Inicializar configuración de rifa desde variables de entorno
+        this.initRaffleConfigFromEnv();
         
         // Método 1: Intentar cargar desde variables de entorno (si están disponibles)
         this.loadFromEnvironment();
@@ -33,6 +39,36 @@ window.AppConfig = {
         }
         
         return this.supabase.isConfigured;
+    },
+    
+    /**
+     * 🎟️ Inicializar configuración de rifa desde variables de entorno
+     */
+    initRaffleConfigFromEnv: function() {
+        console.log('🎟️ [CONFIG] Inicializando configuración de rifa desde variables de entorno...');
+        
+        // Verificar si las variables de entorno están disponibles
+        if (window.ENV_RAFFLE_CONFIG) {
+            this.raffle = window.ENV_RAFFLE_CONFIG;
+            console.log('✅ [CONFIG] Configuración de rifa cargada desde variables de entorno');
+        } else {
+            // Fallback a configuración por defecto si no hay variables de entorno
+            console.log('⚠️ [CONFIG] Variables de entorno no encontradas, usando configuración por defecto');
+            this.raffle = {
+                name: 'Rifa Pampero 2025',
+                organization: 'Peña Náutica Bajada España',
+                drawDate: '2025-08-31T20:00:00',
+                prize: 'Una botella Amarula y una caja de 24 bombones Ferrero Rocher',
+                objective: 'Juntar fondos para renovar velas, pintura y maniobra del Pampero',
+                totalNumbers: 1000,
+                pricePerNumber: 2000,
+                whatsappNumber: '+54 9 341 611-2731',
+                reservationTime: 24,
+                clubInstagram: '@penabajadaespana'
+            };
+        }
+        
+        console.log('🎟️ [CONFIG] Configuración de rifa:', this.raffle.name);
     },
 
     /**
@@ -309,6 +345,29 @@ window.AppConfig = {
     },
 
     /**
+     * 🎟️ Obtener configuración predefinida de rifa
+     */
+    getPredefinedRaffleConfig: function() {
+        const drawDateTime = new Date(this.raffle.drawDate);
+        
+        return {
+            id: 'current',
+            name: this.raffle.name,
+            organization: this.raffle.organization,
+            drawDate: drawDateTime,
+            prize: this.raffle.prize,
+            objective: this.raffle.objective,
+            totalNumbers: this.raffle.totalNumbers,
+            price: this.raffle.pricePerNumber,
+            whatsappNumber: this.raffle.whatsappNumber,
+            reservationTime: this.raffle.reservationTime,
+            clubInstagram: this.raffle.clubInstagram,
+            createdAt: new Date(),
+            isPredefined: true // Marca para identificar que es configuración predefinida
+        };
+    },
+
+    /**
      * 📊 Obtener estadísticas de configuración
      */
     getConfigStats: function() {
@@ -316,7 +375,8 @@ window.AppConfig = {
             isConfigured: this.supabase.isConfigured,
             hasUrl: !!this.supabase.url,
             hasKey: !!this.supabase.anonKey,
-            isDemoMode: localStorage.getItem('demo_mode') === 'true'
+            isDemoMode: localStorage.getItem('demo_mode') === 'true',
+            raffleConfig: this.raffle
         };
     }
 };

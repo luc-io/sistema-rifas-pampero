@@ -438,6 +438,247 @@ window.UtilitiesManager = {
             if (createBtn) createBtn.disabled = false;
             if (syncBtn) syncBtn.disabled = false;
         }
+    },
+    
+    /**
+     * 🗑️ RESET COMPLETO DE LA RIFA - ACCIÓN DESTRUCTIVA
+     */
+    resetRaffleCompletely: function() {
+        console.log('⚠️ [RESET] Iniciando proceso de reset completo...');
+        
+        // Verificar que hay datos para resetear
+        if (!AppState.raffleConfig) {
+            Utils.showNotification('No hay rifa configurada para resetear', 'warning');
+            return;
+        }
+        
+        const totalSales = AppState.sales.length;
+        const totalRevenue = AppState.sales.filter(s => s.status === 'paid').reduce((sum, s) => sum + s.total, 0);
+        const totalReservations = AppState.reservations.filter(r => r.status === 'active').length;
+        const totalAssignments = AppState.assignments?.length || 0;
+        
+        // Primera confirmación con información de datos
+        const confirmReset = confirm(
+            `🚨 RESET COMPLETO DE LA RIFA - ACCIÓN DESTRUCTIVA \n\n` +
+            `📈 Datos que se ELIMINARÁN PERMANENTEMENTE:\n` +
+            `• ${totalSales} ventas registradas\n` +
+            `• ${Utils.formatPrice(totalRevenue)} de ingresos confirmados\n` +
+            `• ${totalReservations} reservas activas\n` +
+            `• ${totalAssignments} asignaciones\n` +
+            `• Toda la configuración personalizada\n\n` +
+            `💾 Se descargará un CSV completo antes del borrado.\n\n` +
+            `¿Estás ABSOLUTAMENTE SEGURO de continuar?`
+        );
+        
+        if (!confirmReset) {
+            Utils.showNotification('Reset cancelado por el usuario', 'info');
+            return;
+        }
+        
+        // Segunda confirmación con texto de confirmación
+        const confirmationText = prompt(
+            `🚨 CONFIRMACIÓN FINAL DE RESET COMPLETO\n\n` +
+            `Para confirmar que entiendes que esta acción ELIMINARÁ ` +
+            `TODOS LOS DATOS de forma PERMANENTE, escribe exactamente:\n\n` +
+            `RESETEAR RIFA COMPLETA\n\n` +
+            `(Distingue mayúsculas y minúsculas)`
+        );
+        
+        if (confirmationText !== 'RESETEAR RIFA COMPLETA') {
+            Utils.showNotification('Texto de confirmación incorrecto. Reset cancelado.', 'error');
+            return;
+        }
+        
+        // Proceder con el reset
+        this.executeCompleteReset();
+    },
+    
+    /**
+     * Ejecutar el reset completo
+     */
+    executeCompleteReset: async function() {
+        console.log('🗑️ [RESET] Ejecutando reset completo...');
+        
+        try {
+            // PASO 1: Descargar CSV completo como respaldo
+            Utils.showNotification('💾 Generando respaldo completo...', 'info');
+            await this.downloadCompleteBackup();
+            
+            // PASO 2: Limpiar datos de Supabase si está conectado
+            if (window.SupabaseManager && SupabaseManager.isConnected) {
+                Utils.showNotification('☁️ Limpiando datos de Supabase...', 'info');
+                await this.clearSupabaseData();
+            }
+            
+            // PASO 3: Limpiar datos locales
+            Utils.showNotification('📱 Limpiando datos locales...', 'info');
+            this.clearLocalData();
+            
+            // PASO 4: Reinicializar con configuración predefinida
+            Utils.showNotification('🔄 Reinicializando rifa...', 'info');
+            setTimeout(() => {
+                if (window.RaffleApp && RaffleApp.initPredefinedRaffle) {
+                    RaffleApp.initPredefinedRaffle();
+                    
+                    // Reinicializar interfaces
+                    setTimeout(() => {
+                        RaffleApp.initializeAllInterfaces();
+                        Utils.showNotification('✅ Reset completo finalizado exitosamente', 'success');
+                        
+                        // Actualizar utilidades
+                        this.updateQuickStats();
+                        this.updateSystemSummary();
+                    }, 1000);
+                } else {
+                    Utils.showNotification('✅ Datos eliminados. Recarga la página.', 'success');
+                }
+            }, 2000);
+            
+        } catch (error) {
+            console.error('❌ [RESET] Error durante el reset:', error);
+            Utils.showNotification('Error durante el reset. Revisa la consola.', 'error');
+        }
+    },
+    
+    /**
+     * Descargar respaldo completo en CSV
+     */
+    downloadCompleteBackup: async function() {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const raffleName = AppState.raffleConfig.name.replace(/[^a-zA-Z0-9]/g, '_');
+        
+        // CSV de ventas completo
+        let salesCsv = "VENTAS_COMPLETAS\n";
+        salesCsv += "ID,Fecha,Nombre,Apellido,Teléfono,Email,Instagram,Área,Números,Cantidad,Total,Método_Pago,Estado\n";
+        
+        AppState.sales.forEach(sale => {
+            const numbersFormatted = sale.numbers.map(n => Utils.formatNumber(n)).join(';');
+            const membershipLabel = AppConstants.MEMBERSHIP_LABELS[sale.buyer.membershipArea] || 'No especificado';
+            
+            salesCsv += [
+                sale.id,
+                Utils.formatDateTime(sale.date),
+                `"${sale.buyer.name}"`,
+                `"${sale.buyer.lastName}"`,
+                `"${sale.buyer.phone}"`,
+                `"${sale.buyer.email || ''}"`,
+                `"${sale.buyer.instagram || ''}"`,
+                `"${membershipLabel}"`,
+                `"${numbersFormatted}"`,
+                sale.numbers.length,
+                sale.total,
+                `"${AppConstants.PAYMENT_METHODS[sale.paymentMethod] || sale.paymentMethod}"`,
+                `"${sale.status}"`
+            ].join(',') + '\n';
+        });
+        
+        // CSV de reservas
+        salesCsv += "\n\nRESERVAS_ACTIVAS\n";
+        salesCsv += "ID,Fecha_Creación,Fecha_Vencimiento,Nombre,Apellido,Teléfono,Números,Total,Estado\n";
+        
+        AppState.reservations.forEach(reservation => {
+            const numbersFormatted = reservation.numbers.map(n => Utils.formatNumber(n)).join(';');
+            
+            salesCsv += [
+                reservation.id,
+                Utils.formatDateTime(reservation.createdAt),
+                Utils.formatDateTime(reservation.expiresAt),
+                `"${reservation.buyer.name}"`,
+                `"${reservation.buyer.lastName}"`,
+                `"${reservation.buyer.phone}"`,
+                `"${numbersFormatted}"`,
+                reservation.total,
+                `"${reservation.status}"`
+            ].join(',') + '\n';
+        });
+        
+        // CSV de asignaciones
+        if (AppState.assignments && AppState.assignments.length > 0) {
+            salesCsv += "\n\nASIGNACIONES\n";
+            salesCsv += "ID,Fecha_Asignación,Vendedor,Teléfono,Números,Total,Estado,Fecha_Límite\n";
+            
+            AppState.assignments.forEach(assignment => {
+                const numbersFormatted = assignment.numbers.map(n => Utils.formatNumber(n)).join(';');
+                
+                salesCsv += [
+                    assignment.id,
+                    Utils.formatDateTime(assignment.assigned_at || assignment.created_at),
+                    `"${assignment.seller_name} ${assignment.seller_lastname}"`,
+                    `"${assignment.seller_phone}"`,
+                    `"${numbersFormatted}"`,
+                    assignment.total_amount,
+                    `"${assignment.status}"`,
+                    assignment.payment_deadline ? Utils.formatDateTime(assignment.payment_deadline) : ''
+                ].join(',') + '\n';
+            });
+        }
+        
+        // Resumen final
+        const totalSales = AppState.sales.length;
+        const totalRevenue = AppState.sales.filter(s => s.status === 'paid').reduce((sum, s) => sum + s.total, 0);
+        const totalNumbers = AppState.sales.reduce((sum, s) => sum + s.numbers.length, 0);
+        
+        salesCsv += "\n\nRESUMEN_FINAL\n";
+        salesCsv += `Rifa,${AppState.raffleConfig.name}\n`;
+        salesCsv += `Organización,${AppState.raffleConfig.organization}\n`;
+        salesCsv += `Fecha_Sorteo,${Utils.formatDateTime(AppState.raffleConfig.drawDate)}\n`;
+        salesCsv += `Total_Ventas,${totalSales}\n`;
+        salesCsv += `Total_Números_Vendidos,${totalNumbers}\n`;
+        salesCsv += `Total_Ingresos_Confirmados,${totalRevenue}\n`;
+        salesCsv += `Reservas_Activas,${AppState.reservations.filter(r => r.status === 'active').length}\n`;
+        salesCsv += `Asignaciones,${AppState.assignments?.length || 0}\n`;
+        salesCsv += `Fecha_Respaldo,${new Date().toLocaleString('es-AR')}\n`;
+        
+        // Descargar el archivo
+        const filename = `RESPALDO_COMPLETO_${raffleName}_${timestamp}.csv`;
+        Utils.downloadCSV(salesCsv, filename);
+        
+        console.log('💾 [RESET] Respaldo completo generado:', filename);
+        return filename;
+    },
+    
+    /**
+     * Limpiar datos de Supabase
+     */
+    clearSupabaseData: async function() {
+        try {
+            if (window.SupabaseManager && SupabaseManager.clearAllData) {
+                await SupabaseManager.clearAllData();
+                console.log('✅ [RESET] Datos de Supabase eliminados');
+            } else {
+                console.log('⚠️ [RESET] Método clearAllData no disponible en SupabaseManager');
+            }
+        } catch (error) {
+            console.error('❌ [RESET] Error limpiando Supabase:', error);
+            throw error;
+        }
+    },
+    
+    /**
+     * Limpiar datos locales
+     */
+    clearLocalData: function() {
+        // Limpiar AppState
+        AppState.raffleConfig = null;
+        AppState.sales = [];
+        AppState.reservations = [];
+        AppState.assignments = [];
+        AppState.numberOwners = [];
+        AppState.selectedNumbers = [];
+        AppState.currentAction = 'buy';
+        AppState.selectedBuyer = null;
+        
+        // Limpiar localStorage
+        const keysToKeep = ['supabase_config_secure', 'demo_mode']; // Mantener configuración de Supabase
+        const allKeys = Object.keys(localStorage);
+        
+        allKeys.forEach(key => {
+            if (!keysToKeep.includes(key)) {
+                localStorage.removeItem(key);
+            }
+        });
+        
+        console.log('✅ [RESET] Datos locales eliminados');
     }
 };
 

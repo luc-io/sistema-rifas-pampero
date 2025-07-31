@@ -63,15 +63,14 @@
         </div>
 
         <div class="nav-tabs">
-            <button class="tab active" onclick="showTab('setup')">Configurar</button>
-            <button class="tab" onclick="showTab('numbers')">Números</button>
+            <button class="tab active" onclick="showTab('numbers')">Números</button>
             <button class="tab" onclick="showTab('admin')">Administrar</button>
             <button class="tab" onclick="showTab('reports')">Reportes</button>
             <button class="tab" onclick="showTab('utilities')">Utilidades</button>
         </div>
 
         <!-- Tab: Configuración -->
-        <div class="tab-content active" id="setup">
+        <div class="tab-content" id="setup" style="display: none;">
             <div class="config-form">
                 <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
                     <h4 style="color: #856404; margin-bottom: 10px;">🛡️ Configuración de Nueva Rifa</h4>
@@ -140,11 +139,11 @@
         </div>
 
         <!-- Tab: Números -->
-        <div class="tab-content" id="numbers">
+        <div class="tab-content active" id="numbers">
             <div id="numbersContent">
                 <div class="setup-needed">
-                    <h3>🎯 Configura tu rifa primero</h3>
-                    <p>Ve a la pestaña "Configurar" para crear tu rifa</p>
+                    <h3>🎟️ Rifa Pampero 2025</h3>
+                    <p>Cargando números de la rifa...</p>
                 </div>
             </div>
         </div>
@@ -249,6 +248,34 @@
                             Sistema listo para diagnóstico
                         </div>
                         <small style="color: #666;">Información detallada sobre el estado del sistema y verificaciones de integridad.</small>
+                    </div>
+                    
+                    <!-- Reset Completo - ZONA PELIGROSA -->
+                    <div class="utility-group" style="background: #ffebee; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #f44336;">
+                        <h4 style="color: #d32f2f;">🚨 Zona Peligrosa - Reset Completo</h4>
+                        <div style="background: #ffcdd2; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #f44336;">
+                            <p style="color: #c62828; font-weight: 600; margin-bottom: 10px;">⚠️ ADVERTENCIA: ACCIÓN DESTRUCTIVA</p>
+                            <p style="color: #d32f2f; font-size: 14px; margin: 0;">
+                                El reset completo ELIMINARÁ TODOS los datos de la rifa actual:
+                                ventas, reservas, asignaciones y configuración personalizada.
+                                <strong>Esta acción NO se puede deshacer.</strong>
+                            </p>
+                        </div>
+                        <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4CAF50;">
+                            <p style="color: #2d5016; font-weight: 600; margin-bottom: 8px;">✅ Protección incluida:</p>
+                            <ul style="color: #2d5016; font-size: 14px; margin: 0; padding-left: 20px;">
+                                <li>Descarga automática de CSV completo</li>
+                                <li>Doble confirmación requerida</li>
+                                <li>Texto de confirmación obligatorio</li>
+                                <li>Reinicialización automática</li>
+                            </ul>
+                        </div>
+                        <div style="text-align: center; margin: 20px 0;">
+                            <button class="btn" onclick="UtilitiesManager.resetRaffleCompletely()" style="background: #f44336; color: white; padding: 15px 30px; font-size: 16px; font-weight: bold; border: 2px solid #d32f2f;">
+                                🗑️ RESET COMPLETO DE LA RIFA
+                            </button>
+                        </div>
+                        <small style="color: #666; display: block; text-align: center;">Usar solo cuando necesites comenzar completamente de cero</small>
                     </div>
                 </div>
             </div>

@@ -9,9 +9,41 @@ static_sites:
   error_document: index.html
   catchall_document: index.html
   envs:
+  # Configuración de Supabase
   - key: SUPABASE_URL
     scope: BUILD_TIME
     type: SECRET
   - key: SUPABASE_ANON_KEY
     scope: BUILD_TIME
     type: SECRET
+  # Configuración predefinida de la rifa
+  - key: RAFFLE_NAME
+    scope: BUILD_TIME
+    value: "Rifa Pampero 2025"
+  - key: RAFFLE_ORGANIZATION
+    scope: BUILD_TIME
+    value: "Peña Náutica Bajada España"
+  - key: RAFFLE_DRAW_DATE
+    scope: BUILD_TIME
+    value: "2025-08-31T20:00:00"
+  - key: RAFFLE_PRIZE
+    scope: BUILD_TIME
+    value: "Una botella Amarula y una caja de 24 bombones Ferrero Rocher"
+  - key: RAFFLE_OBJECTIVE
+    scope: BUILD_TIME
+    value: "Juntar fondos para renovar velas, pintura y maniobra del Pampero"
+  - key: RAFFLE_TOTAL_NUMBERS
+    scope: BUILD_TIME
+    value: "1000"
+  - key: RAFFLE_PRICE_PER_NUMBER
+    scope: BUILD_TIME
+    value: "2000"
+  - key: RAFFLE_WHATSAPP_NUMBER
+    scope: BUILD_TIME
+    value: "+54 9 341 611-2731"
+  - key: RAFFLE_RESERVATION_TIME
+    scope: BUILD_TIME
+    value: "24"
+  - key: RAFFLE_CLUB_INSTAGRAM
+    scope: BUILD_TIME
+    value: "@penabajadaespana"
