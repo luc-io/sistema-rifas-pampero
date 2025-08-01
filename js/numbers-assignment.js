@@ -217,6 +217,12 @@ window.NumbersAssignment = {
             // Agregar a estado local
             AppState.assignments.push(assignment);
             AppState.numberOwners.push(...numberOwners);
+            
+            // 🔄 NUEVO: Sincronización automática con Google Sheets
+            if (window.syncWithGoogleSheets) {
+                console.log('🔄 [ASSIGNMENT] Iniciando auto-sync con Google Sheets...');
+                window.syncWithGoogleSheets();
+            }
 
             // Guardar localmente como respaldo
             if (typeof autoSave === 'function') {

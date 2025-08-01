@@ -87,6 +87,13 @@ window.SupabaseAssignmentsManager = {
             }
             
             console.log('✅ [ASSIGNMENTS] Asignación guardada en Supabase');
+            
+            // 🔄 NUEVO: Sincronización automática con Google Sheets
+            if (window.syncWithGoogleSheets) {
+                console.log('🔄 [ASSIGNMENTS] Iniciando auto-sync con Google Sheets...');
+                window.syncWithGoogleSheets();
+            }
+            
             return data;
             
         } catch (error) {

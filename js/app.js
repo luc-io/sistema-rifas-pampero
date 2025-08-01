@@ -6,6 +6,33 @@
 // Gestión principal de la aplicación
 window.RaffleApp = {
     /**
+     * Inicializar aplicación completa
+     */
+    init: function() {
+        console.log('🚀 [INIT] Iniciando RaffleApp...');
+        
+        // Verificar si hay configuración predefinida desde variables de entorno
+        if (window.AppConfig && window.AppConfig.raffle) {
+            console.log('🎫 [INIT] Configuración predefinida detectada:', window.AppConfig.raffle.name);
+            
+            // Inicializar rifa predefinida si no hay una configuración existente
+            if (!AppState.raffleConfig) {
+                console.log('🆕 [INIT] No hay rifa configurada, usando configuración predefinida...');
+                if (this.initPredefinedRaffle()) {
+                    // Cargar datos y inicializar interfaces
+                    loadFromStorage();
+                    return;
+                }
+            } else {
+                console.log('📄 [INIT] Rifa existente encontrada:', AppState.raffleConfig.name);
+            }
+        }
+        
+        // Si no hay configuración predefinida o ya existe una rifa, cargar normalmente
+        loadFromStorage();
+    },
+    
+    /**
      * Inicializar Supabase de forma segura
      */
     initSupabase: function() {

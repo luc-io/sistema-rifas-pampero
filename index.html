@@ -27,6 +27,7 @@
         connect-src 'self' 
             https://sheets.googleapis.com 
             https://www.googleapis.com 
+            https://apis.google.com 
             https://accounts.google.com 
             https://oauth2.googleapis.com 
             https://content-sheets.googleapis.com 
@@ -399,7 +400,29 @@
     <script>
         // Esperar a que se carguen las variables de entorno
         document.addEventListener('DOMContentLoaded', function() {
-            // Cargar valores predeterminados desde variables de entorno
+            console.log('🚀 [INIT] Iniciando aplicación...');
+            
+            // PASO 1: Inicializar configuración desde variables de entorno
+            if (window.AppConfig && window.AppConfig.init) {
+                console.log('🔧 [INIT] Inicializando AppConfig...');
+                AppConfig.init();
+            }
+            
+            // PASO 2: Inicializar Supabase
+            if (window.RaffleApp && window.RaffleApp.initSupabase) {
+                console.log('💾 [INIT] Inicializando Supabase...');
+                RaffleApp.initSupabase();
+            }
+            
+            // PASO 3: Inicializar interfaz principal
+            if (window.RaffleApp && window.RaffleApp.init) {
+                console.log('🎨 [INIT] Inicializando interfaz...');
+                setTimeout(() => {
+                    RaffleApp.init();
+                }, 500); // Dar tiempo para que Supabase se inicialice
+            }
+            
+            // PASO 4: Cargar valores predeterminados desde variables de entorno
             if (window.ENV_RAFFLE_CONFIG) {
                 const config = window.ENV_RAFFLE_CONFIG;
                 
@@ -448,6 +471,8 @@
                 
                 console.log('✅ Información de pago cargada desde variables de entorno');
             }
+            
+            console.log('🎉 [INIT] Aplicación completamente inicializada');
         });
     </script>
 </body>

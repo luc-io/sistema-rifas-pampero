@@ -164,6 +164,12 @@ window.SupabaseCoreManager = {
             console.log('✅ [SUPABASE-CORE] Venta guardada en Supabase');
             AppState.sales.push(sale);
             
+            // 🔄 NUEVO: Sincronización automática con Google Sheets
+            if (window.syncWithGoogleSheets) {
+                console.log('🔄 [SUPABASE-CORE] Iniciando auto-sync con Google Sheets...');
+                window.syncWithGoogleSheets();
+            }
+            
             return data;
             
         } catch (error) {
@@ -208,6 +214,12 @@ window.SupabaseCoreManager = {
             
             console.log('✅ [SUPABASE-CORE] Reserva guardada en Supabase');
             AppState.reservations.push(reservation);
+            
+            // 🔄 NUEVO: Sincronización automática con Google Sheets
+            if (window.syncWithGoogleSheets) {
+                console.log('🔄 [SUPABASE-CORE] Iniciando auto-sync con Google Sheets (reserva)...');
+                window.syncWithGoogleSheets();
+            }
             
             return data;
             

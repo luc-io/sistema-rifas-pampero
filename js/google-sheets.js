@@ -11,7 +11,7 @@ window.GoogleSheetsManager = {
         apiKey: 'AIzaSyD-jURMnPjLogmHfyFHncEXw1fP5_SqBUU',
         clientId: '758158064041-4h6rk4jovr8k82li4k27571cfiu3iitb.apps.googleusercontent.com',
         discoveryDoc: 'https://sheets.googleapis.com/$discovery/rest?version=v4',
-        scopes: 'https://www.googleapis.com/auth/spreadsheets',
+        scopes: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly',
         spreadsheetId: null,
         isInitialized: false,
         isSignedIn: false,
@@ -187,6 +187,15 @@ window.GoogleSheetsManager = {
     setCredentials: function(apiKey, clientId, spreadsheetId) {
         this.config.apiKey = apiKey;
         this.config.clientId = clientId;
+        
+        // Si hay un spreadsheetId existente y es diferente, preguntar al usuario
+        if (this.config.spreadsheetId && spreadsheetId && this.config.spreadsheetId !== spreadsheetId) {
+            console.warn('⚠️ [SHEETS] Cambiando de hoja:', {
+                anterior: this.config.spreadsheetId,
+                nueva: spreadsheetId
+            });
+        }
+        
         this.config.spreadsheetId = spreadsheetId;
         
         // Guardar en localStorage para persistencia
@@ -201,6 +210,44 @@ window.GoogleSheetsManager = {
         this.config.isSignedIn = false;
         this.config.tokenClient = null;
         this.config.accessToken = null;
+    },
+    
+    /**
+     * Buscar hojas existentes para esta rifa
+     */
+    findExistingRaffleSheet: async function(raffleName) {
+        if (!this.config.isSignedIn) {
+            return null;
+        }
+        
+        try {
+            // Buscar en Google Drive hojas que coincidan con el nombre de la rifa
+            const searchQuery = `name contains "Rifa - ${raffleName}" and mimeType = "application/vnd.google-apps.spreadsheet"`;
+            
+            const response = await gapi.client.request({
+                path: 'https://www.googleapis.com/drive/v3/files',
+                params: {
+                    q: searchQuery,
+                    orderBy: 'createdTime desc',
+                    pageSize: 10
+                }
+            });
+            
+            if (response.result.files && response.result.files.length > 0) {
+                const sheet = response.result.files[0]; // La más reciente
+                console.log('🔍 [SHEETS] Hoja existente encontrada:', sheet.name, sheet.id);
+                return {
+                    id: sheet.id,
+                    name: sheet.name,
+                    url: `https://docs.google.com/spreadsheets/d/${sheet.id}/edit`
+                };
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('❌ [SHEETS] Error buscando hojas existentes:', error);
+            return null;
+        }
     },
     
     /**
@@ -310,7 +357,7 @@ window.GoogleSheetsManager = {
     },
     
     /**
-     * Crear nueva hoja de cálculo para la rifa
+     * Crear o encontrar hoja de cálculo para la rifa
      */
     createRaffleSpreadsheet: async function(raffleName) {
         if (!this.config.isSignedIn) {
@@ -326,6 +373,27 @@ window.GoogleSheetsManager = {
                 };
                 checkAuth();
             });
+        }
+        
+        // Primero buscar si ya existe una hoja para esta rifa
+        console.log('🔍 [SHEETS] Buscando hoja existente para:', raffleName);
+        const existingSheet = await this.findExistingRaffleSheet(raffleName);
+        
+        if (existingSheet) {
+            console.log('✅ [SHEETS] Usando hoja existente:', existingSheet.name);
+            this.config.spreadsheetId = existingSheet.id;
+            
+            // Guardar configuración actualizada
+            this.setCredentials(this.config.apiKey, this.config.clientId, existingSheet.id);
+            
+            Utils.showNotification(`Conectado a hoja existente: ${existingSheet.name}`, 'success');
+            this.updateUIStatus();
+            
+            return {
+                spreadsheetId: existingSheet.id,
+                url: existingSheet.url,
+                isExisting: true
+            };
         }
         
         const spreadsheetName = `Rifa - ${raffleName} - ${new Date().getFullYear()}`;
@@ -386,7 +454,8 @@ window.GoogleSheetsManager = {
             
             return {
                 spreadsheetId,
-                url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+                url: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+                isExisting: false
             };
             
         } catch (error) {
@@ -704,15 +773,39 @@ window.GoogleSheetsManager = {
     },
 
     /**
+     * Sincronizar automáticamente después de cambios
+     */
+    autoSync: async function() {
+        // Solo sincronizar si estamos autenticados y tenemos hoja configurada
+        if (!this.config.isSignedIn || !this.config.spreadsheetId) {
+            console.log('🔄 [SHEETS] Auto-sync omitido: no autenticado o sin hoja configurada');
+            return;
+        }
+        
+        try {
+            console.log('🔄 [SHEETS] Iniciando auto-sincronización...');
+            await this.syncAll(false); // false = no mostrar notificaciones detalladas
+            console.log('✅ [SHEETS] Auto-sincronización completada');
+        } catch (error) {
+            console.error('❌ [SHEETS] Error en auto-sincronización:', error);
+            // No mostrar error al usuario en auto-sync, solo loggearlo
+        }
+    },
+    
+    /**
      * Sincronizar todos los datos
      */
-    syncAll: async function() {
+    syncAll: async function(showNotifications = true) {
         try {
-            Utils.showNotification('Sincronizando con Google Sheets...', 'info');
+            if (showNotifications) {
+                Utils.showNotification('Sincronizando con Google Sheets...', 'info');
+            }
             
             // Verificar que la aplicación esté inicializada
             if (!AppState || !AppState.raffleConfig) {
-                Utils.showNotification('La aplicación no está completamente inicializada', 'warning');
+                if (showNotifications) {
+                    Utils.showNotification('La aplicación no está completamente inicializada', 'warning');
+                }
                 
                 // Intentar forzar inicialización
                 if (window.RaffleApp && RaffleApp.init) {
@@ -728,12 +821,16 @@ window.GoogleSheetsManager = {
             console.log('📊 [SHEETS] Estado de datos antes de sync:', dataStatus);
             
             if (dataStatus.status === 'not_initialized') {
-                Utils.showNotification('Error: Aplicación no inicializada', 'error');
+                if (showNotifications) {
+                    Utils.showNotification('Error: Aplicación no inicializada', 'error');
+                }
                 return;
             }
             
             if (dataStatus.status === 'no_raffle_config') {
-                Utils.showNotification('Configura una rifa primero', 'warning');
+                if (showNotifications) {
+                    Utils.showNotification('Configura una rifa primero', 'warning');
+                }
                 return;
             }
             
@@ -760,15 +857,21 @@ window.GoogleSheetsManager = {
                             }
                         } catch (loadError) {
                             console.error('❌ [SHEETS] Error cargando datos:', loadError);
-                            Utils.showNotification('Error cargando datos desde la base', 'error');
+                            if (showNotifications) {
+                                Utils.showNotification('Error cargando datos desde la base', 'error');
+                            }
                             return;
                         }
                     } else {
-                        Utils.showNotification('Base de datos no conectada', 'warning');
+                        if (showNotifications) {
+                            Utils.showNotification('Base de datos no conectada', 'warning');
+                        }
                         return;
                     }
                 } else {
-                    Utils.showNotification('No hay datos para sincronizar', 'info');
+                    if (showNotifications) {
+                        Utils.showNotification('No hay datos para sincronizar', 'info');
+                    }
                     return;
                 }
             }
@@ -799,34 +902,40 @@ window.GoogleSheetsManager = {
             }
             
             // Resultado final
-            if (syncCount === 0 && errors.length > 0) {
-                Utils.showNotification(`Error sincronizando: ${errors.join(', ')}`, 'error');
-            } else if (syncCount > 0) {
-                const message = errors.length > 0 
-                    ? `Parcialmente sincronizado (${syncCount} de ${dataStatus.totalData} tablas)` 
-                    : `✅ Datos sincronizados exitosamente (${syncCount} tablas)`;
-                Utils.showNotification(message, syncCount === dataStatus.totalData ? 'success' : 'warning');
-                
+            if (showNotifications) {
+                if (syncCount === 0 && errors.length > 0) {
+                    Utils.showNotification(`Error sincronizando: ${errors.join(', ')}`, 'error');
+                } else if (syncCount > 0) {
+                    const message = errors.length > 0 
+                        ? `Parcialmente sincronizado (${syncCount} de ${dataStatus.totalData} tablas)` 
+                        : `✅ Datos sincronizados exitosamente (${syncCount} tablas)`;
+                    Utils.showNotification(message, syncCount === dataStatus.totalData ? 'success' : 'warning');
+                }
+            }
+            
+            if (syncCount > 0) {
                 // Actualizar estado después de sincronización exitosa
                 this.refreshDataStatus();
             }
         } catch (error) {
             console.error('❌ [SHEETS] Error sincronizando:', error);
             
-            // Manejar errores específicos
-            let errorMessage = 'Error sincronizando con Google Sheets';
-            
-            if (error.message?.includes('relation')) {
-                errorMessage = 'Error de base de datos - algunas tablas no existen';
-            } else if (error.message?.includes('spreadsheet')) {
-                errorMessage = 'Error con Google Sheets - verifica la configuración';
-            } else if (error.message?.includes('network')) {
-                errorMessage = 'Error de conexión - verifica tu internet';
-            } else if (error.message?.includes('permission')) {
-                errorMessage = 'Error de permisos - verifica la configuración de Google Sheets';
+            if (showNotifications) {
+                // Manejar errores específicos
+                let errorMessage = 'Error sincronizando con Google Sheets';
+                
+                if (error.message?.includes('relation')) {
+                    errorMessage = 'Error de base de datos - algunas tablas no existen';
+                } else if (error.message?.includes('spreadsheet')) {
+                    errorMessage = 'Error con Google Sheets - verifica la configuración';
+                } else if (error.message?.includes('network')) {
+                    errorMessage = 'Error de conexión - verifica tu internet';
+                } else if (error.message?.includes('permission')) {
+                    errorMessage = 'Error de permisos - verifica la configuración de Google Sheets';
+                }
+                
+                Utils.showNotification(errorMessage, 'error');
             }
-            
-            Utils.showNotification(errorMessage, 'error');
             throw error;
         }
     },
@@ -1281,5 +1390,14 @@ window.GoogleSheetsManager = {
 
 // Cargar credenciales al inicializar
 GoogleSheetsManager.loadCredentials();
+
+/**
+ * Función pública para sincronización automática desde otros módulos
+ */
+window.syncWithGoogleSheets = function() {
+    if (window.GoogleSheetsManager && GoogleSheetsManager.autoSync) {
+        GoogleSheetsManager.autoSync();
+    }
+};
 
 console.log('✅ Google Sheets Manager (GIS) cargado correctamente');
