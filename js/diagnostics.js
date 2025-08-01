@@ -1,24 +1,25 @@
 /**
- * 🔧 Script de Diagnóstico y Limpieza
- * Para identificar y resolver problemas comunes
+ * 🔧 Script de Diagnóstico y Limpieza v2
+ * Para identificar y resolver problemas comunes, incluye detección de reset
  */
 
 (function() {
     'use strict';
     
-    console.log('🔍 [DIAGNOSTICO] Script de diagnóstico cargado');
+    console.log('🔍 [DIAGNOSTICO] Script de diagnóstico v2 cargado');
     
     // Ejecutar diagnósticos después de que la página se cargue
     document.addEventListener('DOMContentLoaded', function() {
         setTimeout(runDiagnostics, 2000); // Esperar a que todo se inicialice
     });
     
-    function runDiagnostics() {
+    async function runDiagnostics() {
         console.log('🔍 [DIAGNOSTICO] Iniciando diagnósticos automáticos...');
         
         try {
             checkEnvironmentVariables();
             checkSupabaseConnection();
+            await checkSyncStatus(); // NUEVO: Verificar estado de sincronización
             checkMultipleInitializations();
             checkBrowserCompatibility();
             cleanupExpiredData();
@@ -80,6 +81,76 @@
             window.SupabaseManager.testConnection()
                 .then(() => console.log('✅ [DIAGNOSTICO] Conexión a Supabase exitosa'))
                 .catch(error => console.log('⚠️ [DIAGNOSTICO] Error de conexión:', error.message));
+        }
+    }
+    
+    /**
+     * Verificar estado de sincronización con Supabase (NUEVO)
+     */
+    async function checkSyncStatus() {
+        console.log('🔍 [DIAGNOSTICO] Verificando estado de sincronización...');
+        
+        if (!window.SupabaseManager || !window.SupabaseManager.isConnected) {
+            console.log('⚠️ [DIAGNOSTICO] Supabase no conectado, omitiendo verificación de sync');
+            return;
+        }
+        
+        try {
+            // Verificar timestamp de última sincronización
+            const lastSync = localStorage.getItem('lastSyncTimestamp');
+            if (!lastSync) {
+                console.log('⚠️ [DIAGNOSTICO] Sin timestamp de sincronización - primera vez');
+            } else {
+                const lastSyncDate = new Date(lastSync);
+                const now = new Date();
+                const hoursDiff = (now - lastSyncDate) / (1000 * 60 * 60);
+                
+                if (hoursDiff > 24) {
+                    console.log(`⚠️ [DIAGNOSTICO] Última sincronización hace ${hoursDiff.toFixed(1)} horas`);
+                } else {
+                    console.log(`✅ [DIAGNOSTICO] Última sincronización hace ${hoursDiff.toFixed(1)} horas`);
+                }
+            }
+            
+            // Verificar discrepancias entre local y Supabase
+            const { data: supabaseSales, count } = await window.supabaseClient
+                .from('sales')
+                .select('*', { count: 'exact', head: true });
+            
+            const localSales = window.AppState?.sales || [];
+            const supabaseCount = count || 0;
+            const localCount = localSales.length;
+            
+            console.log(`📊 [DIAGNOSTICO] Conteo de ventas - Supabase: ${supabaseCount}, Local: ${localCount}`);
+            
+            if (supabaseCount !== localCount) {
+                console.log(`⚠️ [DIAGNOSTICO] DISCREPANCIA EN VENTAS DETECTADA!`);
+                console.log(`🔄 [DIAGNOSTICO] ACCIÓN REQUERIDA: Ejecutar forceSyncFromSupabase()`);
+                
+                // Si Supabase está vacío pero hay datos locales, es probable reset
+                if (supabaseCount === 0 && localCount > 0) {
+                    console.log('🚨 [DIAGNOSTICO] POSIBLE RESET DE SUPABASE DETECTADO!');
+                    console.log('🚨 [DIAGNOSTICO] Supabase vacío pero existen datos locales');
+                    console.log('🔄 [DIAGNOSTICO] SOLUCIÓN: forceSyncFromSupabase() limpiará datos locales');
+                    
+                    // Mostrar alerta al usuario
+                    if (typeof alert !== 'undefined') {
+                        setTimeout(() => {
+                            alert(
+                                '🚨 RESET DE SUPABASE DETECTADO!\n\n' +
+                                '❗ La base de datos está vacía pero tienes datos locales\n' +
+                                '🔄 Usa el botón "Sincronizar" para actualizar\n' +
+                                '📝 O ejecuta: forceSyncFromSupabase()'
+                            );
+                        }, 1000);
+                    }
+                }
+            } else {
+                console.log(`✅ [DIAGNOSTICO] Datos sincronizados correctamente`);
+            }
+            
+        } catch (error) {
+            console.warn('⚠️ [DIAGNOSTICO] Error verificando sincronización:', error);
         }
     }
     
@@ -206,9 +277,9 @@
     }
     
     // Función para ejecutar diagnósticos manualmente
-    window.runSystemDiagnostics = function() {
+    window.runSystemDiagnostics = async function() {
         console.log('🔍 [DIAGNOSTICO] Ejecutando diagnósticos manuales...');
-        runDiagnostics();
+        await runDiagnostics();
         
         // Mostrar resumen en una alerta
         setTimeout(() => {
@@ -222,9 +293,28 @@
                 summary += `🎫 Rifa: ${window.AppState.raffleConfig.name}\\n`;
             }
             
+            // Info de sincronización
+            const lastSync = localStorage.getItem('lastSyncTimestamp');
+            if (lastSync) {
+                const hoursDiff = (new Date() - new Date(lastSync)) / (1000 * 60 * 60);
+                summary += `🔄 Última sync: ${hoursDiff.toFixed(1)}h\\n`;
+            } else {
+                summary += `🔄 Sincronización: NUNCA\\n`;
+            }
+            
+            // Conteo de datos
+            const localSales = window.AppState?.sales?.length || 0;
+            summary += `💰 Ventas locales: ${localSales}\\n`;
+            
+            summary += '\\n📋 Comandos disponibles:\\n';
+            summary += '• forceSyncFromSupabase()\\n';
+            summary += '• autoDetectSyncNeeded()\\n';
+            summary += '• resetSupabaseDatabase()\\n';
+            
             alert(summary);
         }, 500);
     };
     
-    console.log('🏁 [DIAGNOSTICO] Diagnóstico automático configurado');
+    console.log('🏁 [DIAGNOSTICO] Diagnóstico automático v2 configurado');
+    console.log('📋 [DIAGNOSTICO] Incluye detección de reset y sincronización');
 })();
