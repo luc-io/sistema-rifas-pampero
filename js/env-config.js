@@ -11,7 +11,7 @@ window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5
 // Configuración predefinida de la rifa (será reemplazada por inject-env.js)
 window.ENV_RAFFLE_CONFIG = window.ENV_RAFFLE_CONFIG || {
     name: "Rifa Pampero 2025",
-    organization: "Peña Náutica Bajada España", 
+    organization: "Pe\u00f1a N\u00e1utica Bajada Espa\u00f1a", 
     drawDate: "2025-08-31T21:00:00",
     prize: "Una botella Amarula y una caja de 24 bombones Ferrero Rocher",
     objective: "Renovar velas, pintura y maniobra del Pampero",

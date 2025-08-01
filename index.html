@@ -395,85 +395,11 @@
     <script src="js/app.js"></script>
     <!-- Verificador del sistema (solo para desarrollo) -->
     <script src="js/system-verifier.js"></script>
-
-    <!-- Script para cargar valores predeterminados desde variables de entorno -->
-    <script>
-        // Esperar a que se carguen las variables de entorno
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 [INIT] Iniciando aplicación...');
-            
-            // PASO 1: Inicializar configuración desde variables de entorno
-            if (window.AppConfig && window.AppConfig.init) {
-                console.log('🔧 [INIT] Inicializando AppConfig...');
-                AppConfig.init();
-            }
-            
-            // PASO 2: Inicializar Supabase
-            if (window.RaffleApp && window.RaffleApp.initSupabase) {
-                console.log('💾 [INIT] Inicializando Supabase...');
-                RaffleApp.initSupabase();
-            }
-            
-            // PASO 3: Inicializar interfaz principal
-            if (window.RaffleApp && window.RaffleApp.init) {
-                console.log('🎨 [INIT] Inicializando interfaz...');
-                setTimeout(() => {
-                    RaffleApp.init();
-                }, 500); // Dar tiempo para que Supabase se inicialice
-            }
-            
-            // PASO 4: Cargar valores predeterminados desde variables de entorno
-            if (window.ENV_RAFFLE_CONFIG) {
-                const config = window.ENV_RAFFLE_CONFIG;
-                
-                // Rellenar formulario con valores de variables de entorno
-                const raffleName = document.getElementById('raffleName');
-                const organizationName = document.getElementById('organizationName');
-                const totalNumbers = document.getElementById('totalNumbers');
-                const pricePerNumber = document.getElementById('pricePerNumber');
-                const reservationTime = document.getElementById('reservationTime');
-                const whatsappNumber = document.getElementById('whatsappNumber');
-                const clubInstagram = document.getElementById('clubInstagram');
-                const prizeDescription = document.getElementById('prizeDescription');
-                const drawDate = document.getElementById('drawDate');
-                
-                if (raffleName) raffleName.value = config.name || '';
-                if (organizationName) organizationName.value = config.organization || '';
-                if (totalNumbers) totalNumbers.value = config.totalNumbers || 1000;
-                if (pricePerNumber) pricePerNumber.value = config.pricePerNumber || 2000;
-                if (reservationTime) reservationTime.value = config.reservationTime || 108;
-                if (whatsappNumber) whatsappNumber.value = config.whatsappNumber || '';
-                if (clubInstagram) clubInstagram.value = config.clubInstagram || '';
-                if (prizeDescription) prizeDescription.value = config.prize || '';
-                if (drawDate && config.drawDate) {
-                    // Convertir formato de fecha para el input datetime-local
-                    const date = new Date(config.drawDate);
-                    const localDateTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
-                        .toISOString().slice(0, 16);
-                    drawDate.value = localDateTime;
-                }
-                
-                console.log('✅ Formulario cargado con variables de entorno');
-            }
-            
-            // Cargar información de pago desde variables de entorno
-            if (window.ENV_PAYMENT_CONFIG) {
-                const paymentConfig = window.ENV_PAYMENT_CONFIG;
-                const mpAlias = document.getElementById('mpAlias');
-                const mpCvu = document.getElementById('mpCvu');
-                const mpHolder = document.getElementById('mpHolder');
-                const mpCuit = document.getElementById('mpCuit');
-                
-                if (mpAlias) mpAlias.textContent = paymentConfig.mpAlias || 'No configurado';
-                if (mpCvu) mpCvu.textContent = paymentConfig.mpCvu || 'No configurado';
-                if (mpHolder) mpHolder.textContent = paymentConfig.mpHolder || 'No configurado';
-                if (mpCuit) mpCuit.textContent = paymentConfig.mpCuit || 'No configurado';
-                
-                console.log('✅ Información de pago cargada desde variables de entorno');
-            }
-            
-            console.log('🎉 [INIT] Aplicación completamente inicializada');
-        });
-    </script>
+    
+    <!-- Script de inicialización mejorado -->
+    <script src="js/init-manager.js"></script>
+    
+    <!-- Script de diagnóstico automático -->
+    <script src="js/diagnostics.js"></script>
 </body>
 </html>

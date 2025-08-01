@@ -8,35 +8,69 @@ const path = require('path');
 
 console.log('🔧 [BUILD] Iniciando inyección de variables de entorno...');
 
+// Función para escapar caracteres especiales en JavaScript
+function escapeForJS(str) {
+    if (typeof str !== 'string') return str;
+    return str
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t')
+        .replace(/ñ/g, '\\u00f1')
+        .replace(/Ñ/g, '\\u00d1')
+        .replace(/á/g, '\\u00e1')
+        .replace(/é/g, '\\u00e9')
+        .replace(/í/g, '\\u00ed')
+        .replace(/ó/g, '\\u00f3')
+        .replace(/ú/g, '\\u00fa')
+        .replace(/Á/g, '\\u00c1')
+        .replace(/É/g, '\\u00c9')
+        .replace(/Í/g, '\\u00cd')
+        .replace(/Ó/g, '\\u00d3')
+        .replace(/Ú/g, '\\u00da');
+}
+
 // Verificar que las variables estén disponibles
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-// Variables de la rifa
-const RAFFLE_NAME = process.env.RAFFLE_NAME || 'Rifa Pampero 2025';
-const RAFFLE_ORGANIZATION = process.env.RAFFLE_ORGANIZATION || 'Peña Náutica Bajada España';
-const RAFFLE_DRAW_DATE = process.env.RAFFLE_DRAW_DATE || '2025-08-31T21:00:00';
-const RAFFLE_PRIZE = process.env.RAFFLE_PRIZE || 'Una botella Amarula y una caja de 24 bombones Ferrero Rocher';
-const RAFFLE_OBJECTIVE = process.env.RAFFLE_OBJECTIVE || 'Renovar velas, pintura y maniobra del Pampero';
+// Variables de la rifa con escape de caracteres especiales
+const RAFFLE_NAME = escapeForJS(process.env.RAFFLE_NAME || 'Rifa Pampero 2025');
+const RAFFLE_ORGANIZATION = escapeForJS(process.env.RAFFLE_ORGANIZATION || 'Peña Náutica Bajada España');
+const RAFFLE_DRAW_DATE = escapeForJS(process.env.RAFFLE_DRAW_DATE || '2025-08-31T21:00:00');
+const RAFFLE_PRIZE = escapeForJS(process.env.RAFFLE_PRIZE || 'Una botella Amarula y una caja de 24 bombones Ferrero Rocher');
+const RAFFLE_OBJECTIVE = escapeForJS(process.env.RAFFLE_OBJECTIVE || 'Renovar velas, pintura y maniobra del Pampero');
 const RAFFLE_TOTAL_NUMBERS = parseInt(process.env.RAFFLE_TOTAL_NUMBERS) || 1000;
 const RAFFLE_PRICE_PER_NUMBER = parseInt(process.env.RAFFLE_PRICE_PER_NUMBER) || 2000;
-const RAFFLE_WHATSAPP_NUMBER = process.env.RAFFLE_WHATSAPP_NUMBER || '341 611-2731';
+const RAFFLE_WHATSAPP_NUMBER = escapeForJS(process.env.RAFFLE_WHATSAPP_NUMBER || '341 611-2731');
 const RAFFLE_RESERVATION_TIME = parseInt(process.env.RAFFLE_RESERVATION_TIME) || 108;
-const RAFFLE_CLUB_INSTAGRAM = process.env.RAFFLE_CLUB_INSTAGRAM || '@vela.pnbe';
+const RAFFLE_CLUB_INSTAGRAM = escapeForJS(process.env.RAFFLE_CLUB_INSTAGRAM || '@vela.pnbe');
 
-// Variables de pago
-const PAYMENT_MP_ALIAS = process.env.PAYMENT_MP_ALIAS || 'pnberosario.mp';
-const PAYMENT_MP_CVU = process.env.PAYMENT_MP_CVU || '000000310003262395392';
-const PAYMENT_MP_HOLDER = process.env.PAYMENT_MP_HOLDER || 'Fernando Ernesto Maumus';
-const PAYMENT_MP_CUIT = process.env.PAYMENT_MP_CUIT || '20239282564';
+// Variables de pago con escape
+const PAYMENT_MP_ALIAS = escapeForJS(process.env.PAYMENT_MP_ALIAS || 'pnberosario.mp');
+const PAYMENT_MP_CVU = escapeForJS(process.env.PAYMENT_MP_CVU || '000000310003262395392');
+const PAYMENT_MP_HOLDER = escapeForJS(process.env.PAYMENT_MP_HOLDER || 'Fernando Ernesto Maumus');
+const PAYMENT_MP_CUIT = escapeForJS(process.env.PAYMENT_MP_CUIT || '20239282564');
 
-console.log('📊 [BUILD] Variables de rifa detectadas:');
+console.log('📋 [BUILD] Variables de rifa detectadas:');
 console.log(`  - Nombre: ${RAFFLE_NAME}`);
 console.log(`  - Organización: ${RAFFLE_ORGANIZATION}`);
 console.log(`  - Fecha sorteo: ${RAFFLE_DRAW_DATE}`);
 console.log(`  - Total números: ${RAFFLE_TOTAL_NUMBERS}`);
 console.log(`  - Precio por número: $${RAFFLE_PRICE_PER_NUMBER}`);
 console.log(`  - WhatsApp: ${RAFFLE_WHATSAPP_NUMBER}`);
+
+console.log('💾 [BUILD] Variables de Supabase:');
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    console.log(`  - URL: ${SUPABASE_URL}`);
+    console.log(`  - Key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
+    console.log('  ✅ Supabase completamente configurado');
+} else {
+    console.log('  ⚠️ Variables de Supabase no encontradas');
+    console.log('  📋 La aplicación funcionará solo con localStorage');
+}
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.log('⚠️ [BUILD] Variables de Supabase no encontradas, la aplicación usará configuración manual');
@@ -89,7 +123,7 @@ console.log('📱 [ENV] WhatsApp:', window.ENV_RAFFLE_CONFIG.whatsappNumber);
     }
     
     const outputPath = path.join(__dirname, 'js', 'env-config.js');
-    fs.writeFileSync(outputPath, configWithoutSupabase);
+    fs.writeFileSync(outputPath, configWithoutSupabase, 'utf8');
     console.log('✅ [BUILD] Archivo env-config.js creado (solo con variables de rifa)');
 } else {
     // Validar formato de las variables de Supabase
@@ -113,8 +147,8 @@ console.log('📱 [ENV] WhatsApp:', window.ENV_RAFFLE_CONFIG.whatsappNumber);
  */
 
 // Variables de Supabase
-window.SUPABASE_URL = '${SUPABASE_URL}';
-window.SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}';
+window.SUPABASE_URL = "${escapeForJS(SUPABASE_URL)}";
+window.SUPABASE_ANON_KEY = "${escapeForJS(SUPABASE_ANON_KEY)}";
 
 // Configuración de la rifa desde variables de entorno
 window.ENV_RAFFLE_CONFIG = {
@@ -153,9 +187,9 @@ console.log('💳 [ENV] Alias MercadoPago:', window.ENV_PAYMENT_CONFIG.mpAlias);
         console.log('📁 [BUILD] Directorio js/ creado');
     }
 
-    // Escribir el archivo
+    // Escribir el archivo con codificación UTF-8
     const outputPath = path.join(jsDir, 'env-config.js');
-    fs.writeFileSync(outputPath, fullConfig);
+    fs.writeFileSync(outputPath, fullConfig, 'utf8');
 
     console.log(`✅ [BUILD] Variables inyectadas en: ${outputPath}`);
 }
@@ -224,3 +258,12 @@ console.log(`  🔢 Números: ${RAFFLE_TOTAL_NUMBERS}`);
 console.log(`  💰 Precio: $${RAFFLE_PRICE_PER_NUMBER}`);
 console.log(`  📱 WhatsApp: ${RAFFLE_WHATSAPP_NUMBER}`);
 console.log(`  💳 MercadoPago: ${PAYMENT_MP_ALIAS}`);
+
+// Mostrar estado de Supabase
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    console.log(`  💾 Supabase: ${SUPABASE_URL}`);
+    console.log(`  🔑 Key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
+    console.log('  ✅ Base de datos: Totalmente configurada');
+} else {
+    console.log('  ⚠️ Base de datos: Variables no encontradas (usará localStorage)');
+}
