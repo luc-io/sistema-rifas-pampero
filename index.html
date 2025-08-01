@@ -369,6 +369,8 @@
     <!-- Scripts principales -->
     <!-- Variables de entorno (Digital Ocean) - CARGA SINCRONA -->
     <script src="js/env-config.js" onerror="console.log('⚠️ [ENV] env-config.js no encontrado, usando configuración manual'); window.SUPABASE_URL = null; window.SUPABASE_ANON_KEY = null;"></script>
+    <!-- Singleton de Supabase -->
+    <script src="js/supabase-singleton.js"></script>
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <!-- Supabase Refactorizado -->
@@ -396,8 +398,8 @@
     <!-- Verificador del sistema (solo para desarrollo) -->
     <script src="js/system-verifier.js"></script>
     
-    <!-- Script de inicialización mejorado -->
-    <script src="js/init-manager.js"></script>
+    <!-- Script de inicialización mejorado v2 -->
+    <script src="js/init-manager-v2.js"></script>
     
     <!-- Script de diagnóstico automático -->
     <script src="js/diagnostics.js"></script>

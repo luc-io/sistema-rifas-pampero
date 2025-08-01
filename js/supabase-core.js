@@ -198,7 +198,9 @@ window.SupabaseCoreManager = {
                     buyer: reservation.buyer,
                     total: reservation.total,
                     status: reservation.status,
-                    expires_at: reservation.expiresAt.toISOString(),
+                    expires_at: reservation.expiresAt instanceof Date ? 
+                        reservation.expiresAt.toISOString() : 
+                        new Date(reservation.expiresAt).toISOString(),
                     created_at: new Date().toISOString()
                 }])
                 .select();

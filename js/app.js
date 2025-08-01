@@ -76,9 +76,20 @@ window.RaffleApp = {
         }
         
         try {
-            const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+            // Usar singleton para evitar múltiples instancias
+            let supabaseClient;
+            if (window.SupabaseSingleton) {
+                supabaseClient = window.SupabaseSingleton.getInstance();
+                if (!supabaseClient) {
+                    supabaseClient = window.SupabaseSingleton.initialize(supabaseUrl, supabaseKey);
+                }
+            } else {
+                // Fallback si no hay singleton
+                supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+            }
+            
             window.supabaseClient = supabaseClient;
-            console.log('🔍 [DEBUG] Cliente creado exitosamente');
+            console.log('🔍 [DEBUG] Cliente obtenido/creado exitosamente');
             
             // Inicializar SupabaseManager
             if (window.SupabaseManager) {
