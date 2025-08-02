@@ -199,6 +199,14 @@ window.NumbersManager = {
     selectExistingBuyer: function(name, lastName) { NumbersPurchase.selectExistingBuyer(name, lastName); },
     clearSuggestions: function() { NumbersPurchase.clearSuggestions(); },
     
+    // ✅ CORRECCIÓN: Agregar delegaciones faltantes para WhatsApp
+    generateSimpleWhatsAppMessage: function(sale, numbersFormatted) { 
+        return NumbersPurchase.generateSimpleWhatsAppMessage(sale, numbersFormatted); 
+    },
+    showPurchaseConfirmation: function(sale, whatsappMessage) { 
+        NumbersPurchase.showPurchaseConfirmation(sale, whatsappMessage); 
+    },
+    
     openAssignmentModal: function() { NumbersAssignment.openAssignmentModal(); },
     closeAssignmentModal: function() { NumbersAssignment.closeAssignmentModal(); },
     completeAssignment: function() { NumbersAssignment.completeAssignment(); },
