@@ -46,7 +46,7 @@ const RAFFLE_TOTAL_NUMBERS = parseInt(process.env.RAFFLE_TOTAL_NUMBERS) || 1000;
 const RAFFLE_PRICE_PER_NUMBER = parseInt(process.env.RAFFLE_PRICE_PER_NUMBER) || 2000;
 const RAFFLE_WHATSAPP_NUMBER = escapeForJS(process.env.RAFFLE_WHATSAPP_NUMBER || '341 611-2731');
 const RAFFLE_RESERVATION_TIME = parseInt(process.env.RAFFLE_RESERVATION_TIME) || 108;
-const RAFFLE_CLUB_INSTAGRAM = escapeForJS(process.env.RAFFLE_CLUB_INSTAGRAM || '@vela.pnbe');
+const RAFFLE_CLUB_INSTAGRAM = escapeForJS(process.env.RAFFLE_CLUB_INSTAGRAM || '@pampero.pnbe');
 
 // Variables de pago con escape
 const PAYMENT_MP_ALIAS = escapeForJS(process.env.PAYMENT_MP_ALIAS || 'pnberosario.mp');

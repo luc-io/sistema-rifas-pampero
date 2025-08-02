@@ -19,7 +19,7 @@ window.ENV_RAFFLE_CONFIG = window.ENV_RAFFLE_CONFIG || {
     pricePerNumber: 2000,
     whatsappNumber: "341 611-2731",
     reservationTime: 108,
-    clubInstagram: "@vela.pnbe"
+    clubInstagram: "@pampero.pnbe"
 };
 
 // Datos bancarios predeterminados (serán reemplazados por inject-env.js)
