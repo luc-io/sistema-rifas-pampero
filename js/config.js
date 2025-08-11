@@ -57,7 +57,7 @@ window.AppConfig = {
             this.raffle = {
                 name: 'Rifa Pampero 2025',
                 organization: 'Peña Náutica Bajada España',
-                drawDate: '2025-08-31T20:00:00',
+                drawDate: '2025-08-30T20:00:00',
                 prize: 'Una botella Amarula y una caja de 24 bombones Ferrero Rocher',
                 objective: 'Juntar fondos para renovar velas, pintura y maniobra del Pampero',
                 totalNumbers: 1000,
