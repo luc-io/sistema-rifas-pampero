@@ -163,8 +163,8 @@ window.SupabaseCoreManager = {
             
             console.log('✅ [SUPABASE-CORE] Venta guardada en Supabase');
             
-            // 🔧 CORREGIDO: NO agregar al AppState aquí - se carga desde Supabase para evitar duplicados
-            // AppState.sales.push(sale); // ❌ ELIMINADO para evitar duplicación
+            // 🔧 TEMPORAL: NO agregar al AppState aquí - el fix-purchase-flow.js lo maneja
+            // AppState.sales.push(sale); // Manejado por fix-purchase-flow.js
             
             // 🔄 NUEVO: Sincronización automática con Google Sheets
             if (window.syncWithGoogleSheets) {
@@ -218,8 +218,8 @@ window.SupabaseCoreManager = {
             
             console.log('✅ [SUPABASE-CORE] Reserva guardada en Supabase');
             
-            // 🔧 CORREGIDO: NO agregar al AppState aquí - se carga desde Supabase para evitar duplicados
-            // AppState.reservations.push(reservation); // ❌ ELIMINADO para evitar duplicación
+            // 🔧 TEMPORAL: NO agregar al AppState aquí - el fix-purchase-flow.js lo maneja
+            // AppState.reservations.push(reservation); // Manejado por fix-purchase-flow.js
             
             // 🔄 NUEVO: Sincronización automática con Google Sheets
             if (window.syncWithGoogleSheets) {
