@@ -718,13 +718,273 @@ window.AdminManager = {
     },
 
     changeAssignmentHolder: function(assignmentId) {
-        console.log(`⚠️ [ADMIN] changeAssignmentHolder no implementado para ID: ${assignmentId}`);
-        Utils.showNotification('Función en desarrollo', 'warning');
+        console.log(`🔄 [ADMIN] Intentando cambiar titular de asignación ID: ${assignmentId}`);
+        
+        // Buscar la asignación
+        const assignment = AppState.assignments?.find(a => a.id == assignmentId);
+        
+        if (!assignment) {
+            console.error(`❌ [ADMIN] Asignación ${assignmentId} no encontrada`);
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
+        
+        // Crear modal para cambiar titular
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="modal-close" onclick="this.closest('.modal').remove()">&times;</span>
+                <h3>Cambiar Titular de Asignación</h3>
+                
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4>Asignación Actual:</h4>
+                    <p><strong>Vendedor:</strong> ${assignment.seller_name} ${assignment.seller_lastname}</p>
+                    <p><strong>Teléfono:</strong> ${assignment.seller_phone}</p>
+                    <p><strong>Números:</strong> ${assignment.numbers.join(', ')}</p>
+                    <p><strong>Total:</strong> ${assignment.total_amount}</p>
+                    <p><strong>Estado:</strong> ${assignment.status}</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newSellerName">Nuevo Nombre</label>
+                    <input type="text" id="newSellerName" value="${assignment.seller_name}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newSellerLastname">Nuevo Apellido</label>
+                    <input type="text" id="newSellerLastname" value="${assignment.seller_lastname}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newSellerPhone">Nuevo Teléfono</label>
+                    <input type="tel" id="newSellerPhone" value="${assignment.seller_phone}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="newSellerEmail">Nuevo Email</label>
+                    <input type="email" id="newSellerEmail" value="${assignment.seller_email || ''}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="changeReason">Motivo del Cambio</label>
+                    <textarea id="changeReason" rows="3" placeholder="Opcional: describe el motivo del cambio de titular"></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="AdminManager.confirmHolderChange(${assignmentId})" style="flex: 1;">
+                        💾 Confirmar Cambio
+                    </button>
+                    <button class="btn btn-secondary" onclick="this.closest('.modal').remove()" style="flex: 1;">
+                        ❌ Cancelar
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    },
+
+    /**
+     * Confirmar cambio de titular
+     */
+    confirmHolderChange: function(assignmentId) {
+        try {
+            const assignment = AppState.assignments?.find(a => a.id == assignmentId);
+            if (!assignment) {
+                Utils.showNotification('Asignación no encontrada', 'error');
+                return;
+            }
+            
+            // Obtener nuevos datos
+            const newName = document.getElementById('newSellerName').value.trim();
+            const newLastname = document.getElementById('newSellerLastname').value.trim();
+            const newPhone = document.getElementById('newSellerPhone').value.trim();
+            const newEmail = document.getElementById('newSellerEmail').value.trim();
+            const reason = document.getElementById('changeReason').value.trim();
+            
+            if (!newName || !newLastname || !newPhone) {
+                Utils.showNotification('Nombre, apellido y teléfono son obligatorios', 'error');
+                return;
+            }
+            
+            // Guardar datos anteriores para el log
+            const oldData = {
+                name: assignment.seller_name,
+                lastname: assignment.seller_lastname,
+                phone: assignment.seller_phone,
+                email: assignment.seller_email
+            };
+            
+            // Actualizar asignación
+            assignment.seller_name = newName;
+            assignment.seller_lastname = newLastname;
+            assignment.seller_phone = newPhone;
+            assignment.seller_email = newEmail;
+            assignment.updated_at = new Date();
+            
+            // Agregar nota del cambio
+            const changeNote = `CAMBIO DE TITULAR: ${oldData.name} ${oldData.lastname} → ${newName} ${newLastname}`;
+            assignment.notes = assignment.notes ? 
+                `${assignment.notes}\n${changeNote}` : 
+                changeNote;
+                
+            if (reason) {
+                assignment.notes += `\nMotivo: ${reason}`;
+            }
+            
+            console.log(`📝 [ADMIN] Titular de asignación ${assignmentId} cambiado de ${oldData.name} ${oldData.lastname} a ${newName} ${newLastname}`);
+            
+            // Actualizar en Supabase
+            if (window.SupabaseAssignmentsManager && window.SupabaseAssignmentsManager.isConnected) {
+                window.SupabaseAssignmentsManager.updateAssignment(assignmentId, {
+                    seller_name: newName,
+                    seller_lastname: newLastname,
+                    seller_phone: newPhone,
+                    seller_email: newEmail,
+                    notes: assignment.notes,
+                    updated_at: new Date().toISOString()
+                }).then(() => {
+                    console.log(`✅ [ADMIN] Cambio de titular actualizado en Supabase`);
+                }).catch(error => {
+                    console.error(`❌ [ADMIN] Error actualizando titular en Supabase:`, error);
+                });
+            }
+            
+            // Cerrar modal
+            document.querySelector('.modal').remove();
+            
+            // Actualizar interfaz
+            this.updateInterface();
+            
+            // Guardar automáticamente
+            if (typeof autoSave === 'function') {
+                autoSave();
+            }
+            
+            // Notificación de éxito
+            Utils.showNotification(
+                `✅ Titular cambiado exitosamente\n` +
+                `De: ${oldData.name} ${oldData.lastname}\n` +
+                `A: ${newName} ${newLastname}`,
+                'success'
+            );
+            
+        } catch (error) {
+            console.error(`❌ [ADMIN] Error cambiando titular:`, error);
+            Utils.showNotification(`Error cambiando titular: ${error.message}`, 'error');
+        }
     },
 
     cancelAssignment: function(assignmentId) {
-        console.log(`⚠️ [ADMIN] cancelAssignment no implementado para ID: ${assignmentId}`);
-        Utils.showNotification('Función en desarrollo', 'warning');
+        console.log(`🔄 [ADMIN] Intentando cancelar asignación ID: ${assignmentId}`);
+        
+        // Buscar la asignación
+        const assignment = AppState.assignments?.find(a => a.id == assignmentId);
+        
+        if (!assignment) {
+            console.error(`❌ [ADMIN] Asignación ${assignmentId} no encontrada`);
+            Utils.showNotification('Asignación no encontrada', 'error');
+            return;
+        }
+        
+        // Verificar que se puede cancelar
+        if (assignment.status === 'paid') {
+            const confirmCancel = confirm(
+                `⚠️ ADVERTENCIA: La asignación de ${assignment.seller_name} ${assignment.seller_lastname} ya está PAGADA.\n\n` +
+                `Números asignados: ${assignment.numbers.join(', ')}\n\n` +
+                `¿Estás seguro de que quieres cancelarla? Los números quedarán disponibles nuevamente.`
+            );
+            
+            if (!confirmCancel) {
+                console.log(`🚫 [ADMIN] Cancelación de asignación pagada ${assignmentId} abortada por usuario`);
+                return;
+            }
+        }
+        
+        try {
+            // 1. Cambiar estado de la asignación
+            const oldStatus = assignment.status;
+            assignment.status = 'cancelled';
+            assignment.updated_at = new Date();
+            
+            console.log(`📝 [ADMIN] Asignación ${assignmentId} marcada como cancelada (era: ${oldStatus})`);
+            
+            // 2. Liberar números asignados
+            const numbersToFree = [...assignment.numbers];
+            numbersToFree.forEach(number => {
+                AppState.numberStatuses[number] = 'available';
+            });
+            
+            console.log(`🔓 [ADMIN] Liberados ${numbersToFree.length} números: ${numbersToFree.join(', ')}`);
+            
+            // 3. Eliminar titulares de números relacionados
+            if (AppState.numberOwners) {
+                const ownersToRemove = AppState.numberOwners.filter(owner => 
+                    owner.assignment_id == assignmentId || 
+                    numbersToFree.includes(owner.number_value)
+                );
+                
+                ownersToRemove.forEach(owner => {
+                    const index = AppState.numberOwners.indexOf(owner);
+                    if (index > -1) {
+                        AppState.numberOwners.splice(index, 1);
+                        console.log(`🗑️ [ADMIN] Titular removido: ${owner.name} ${owner.lastname} (número ${owner.number_value})`);
+                    }
+                });
+            }
+            
+            // 4. Actualizar en Supabase (assignments)
+            if (window.SupabaseAssignmentsManager && window.SupabaseAssignmentsManager.isConnected) {
+                window.SupabaseAssignmentsManager.updateAssignment(assignmentId, {
+                    status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                }).then(() => {
+                    console.log(`✅ [ADMIN] Asignación ${assignmentId} actualizada en Supabase`);
+                }).catch(error => {
+                    console.error(`❌ [ADMIN] Error actualizando asignación en Supabase:`, error);
+                });
+            }
+            
+            // 5. Actualizar interfaz
+            this.updateInterface();
+            
+            // 6. Actualizar números en la UI si está visible
+            if (typeof window.NumbersManager !== 'undefined' && NumbersManager.updateNumbersDisplay) {
+                NumbersManager.updateNumbersDisplay();
+            }
+            
+            // 7. Guardar automáticamente
+            if (typeof autoSave === 'function') {
+                autoSave();
+            }
+            
+            // 8. Mostrar notificación de éxito
+            const sellerInfo = assignment.seller_name && assignment.seller_lastname ? 
+                `${assignment.seller_name} ${assignment.seller_lastname}` : 
+                'Vendedor desconocido';
+                
+            Utils.showNotification(
+                `✅ Asignación cancelada exitosamente\n` +
+                `Vendedor: ${sellerInfo}\n` +
+                `Números liberados: ${numbersToFree.length}\n` +
+                `Estado anterior: ${oldStatus}`,
+                'success'
+            );
+            
+            console.log(`✅ [ADMIN] Asignación ${assignmentId} cancelada exitosamente`);
+            
+            // 9. Sincronización con Google Sheets (si está disponible)
+            if (window.GoogleSheetsManager && window.GoogleSheetsManager.syncAll) {
+                setTimeout(() => {
+                    window.GoogleSheetsManager.syncAll();
+                }, 1000);
+            }
+            
+        } catch (error) {
+            console.error(`❌ [ADMIN] Error cancelando asignación ${assignmentId}:`, error);
+            Utils.showNotification(`Error cancelando asignación: ${error.message}`, 'error');
+        }
     }
 };
 
